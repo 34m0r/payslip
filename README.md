@@ -1,57 +1,121 @@
 # Payslip
 
-> Confidential payroll on Stellar — and a payslip that proves your income without revealing it.
+> Confidential payroll on Stellar, and a payslip that proves your income without revealing it.
 
-**HackMeridian 2026 · Genesis · Stellar Composed** — OpenZeppelin Confidential Token (v0.8.0)
-+ Confidential Token SDK (bb.js / noir_js) + Nethermind UltraHonk verifier (+ Stellar anchor, stretch).
+**HackMeridian 2026 · Genesis · Stellar Composed.** Built on the OpenZeppelin Confidential Token
+(stellar-contracts v0.8.0), the Confidential Token SDK (noir_js + bb.js), the Nethermind UltraHonk
+Soroban verifier and Circle's testnet USDC. Everything below runs on **Stellar testnet**.
+
+1. **The employer pays.** Atlântica Labs pays its employees in USDC through a confidential token. On the
+   ledger anyone sees who pays whom, never how much. The employer, as auditor, can decrypt its payroll.
+2. **The employee proves.** In their browser, an employee proves *"my last 3 salaries from Atlântica Labs
+   add up to at least X"*, from the real on-chain events, without revealing any amount or the total.
+3. **The verifier checks.** A landlord opens a link. The page re-reads the transfers on-chain, rebuilds
+   every public input itself, verifies the proof, and shows ✓, with no amount anywhere.
 
 ## What is new here
-Confidential payroll already exists on Stellar (prior art: Lucent, and the SDK's payroll walkthrough).
-Payslip's contribution is **D-income**, an aggregate-threshold selective-disclosure circuit:
 
-> "The last N salary transfers I received from employer E sum to **at least X**" —
-> proven to one verifier, revealing no individual amount and not the total.
+Confidential payroll on Stellar already exists: credit to [Lucent](https://github.com/ToluLabs/Lucent) and
+to the SDK's payroll walkthrough. Payslip's contribution is **D-income**, an aggregate-threshold
+selective-disclosure circuit.
 
-Existing disclosure circuits (SDK `disclose_recipient`) reveal the *exact* amount of *one* transfer.
-D-income implements the "finite set of events + threshold" disclosure type described in
-OpenZeppelin's selective-disclosure specification.
+The existing disclosure circuits (the SDK's `disclose_recipient` / `disclose_sender`) reveal the **exact**
+amount of **one** transfer. D-income proves a **threshold** over **several** transfers: the "finite set of
+events + threshold" disclosure type of OpenZeppelin's
+[selective-disclosure specification](https://docs.openzeppelin.com/stellar-contracts/tokens/confidential/selective-disclosure),
+which had no implementation.
 
-## Run the app (opens in Brave)
+## Live on testnet
+
+Deployed by `scripts/testnet/deploy.mjs`. All ids and hashes are in [`deployments/testnet.json`](deployments/testnet.json).
+
+| | |
+|---|---|
+| Confidential token (compliant, allowlist) | [`CBUHR3NB…RMT2I`](https://stellar.expert/explorer/testnet/contract/CBUHR3NBYP4NONOFGQ5BYIRSS7GWRIDGWNO4DYK32GJPWAN6TK4RMT2I) |
+| Underlying asset: Circle testnet USDC (SAC) | [`CBIELTK6…DAMA`](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA) |
+| UltraHonk verifier registry (6 circuit VKs) | [`CA2QVJTD…2X2H`](https://stellar.expert/explorer/testnet/contract/CA2QVJTD3SC5JEKK7EFGP4RTX7AFL77B2TQPY44HF3QUZEXSWKHJ2X2H) |
+| Auditor registry (auditor 0 = the employer) | [`CCNRBMHN…RPR4S`](https://stellar.expert/explorer/testnet/contract/CCNRBMHND4ZLECGR4ZXBFV2JAYRGI5XM7I4GFSWO4X2SU7DJIM7RPR4S) |
+| Factory · allowlist policy | [`CBGBFZ4X…C6VF`](https://stellar.expert/explorer/testnet/contract/CBGBFZ4XRV2YB4UQXJYZRM4INDSZGZKW2V3FJEDVKPRPNBUSAEHEC6VF) · [`CBOQKD5V…HWU7`](https://stellar.expert/explorer/testnet/contract/CBOQKD5VAL3HGYGHNMITQVSX6EBNU5R2D3FAOYCWTOZS7B4Q6EYEHWU7) |
+| Employer, Atlântica Labs | [`GAPAKH3V…76MA`](https://stellar.expert/explorer/testnet/account/GAPAKH3VJTAMXZRZ66MHOZGZSTYPNDTIWEZI2EX6TC5YQARQMLIS76MA) |
+
+First payroll: three `confidential_transfer` calls, each with an UltraHonk proof verified on-chain. Open any
+of them: sender and recipient are visible, the amount is a ciphertext.
+
+- Clara Duarte (Lisbon): [`c73e5b25…`](https://stellar.expert/explorer/testnet/tx/c73e5b253d3607fd9f26c7dbcee32b45aba39f0aa6f6df2432dbdc8e0596edbf)
+- Rafael Oliveira (São Paulo): [`1ea93231…`](https://stellar.expert/explorer/testnet/tx/1ea93231ea1cc1b24ee09fe514661775afe8fa0fdd3056f4139437f436a0f60b)
+- Adaeze Okafor (Lagos): [`787541ec…`](https://stellar.expert/explorer/testnet/tx/787541ec67f95d787de195ada485f950bcc7fca7844df5754e44f0a15e4677d0)
+
+Each employee has since received three monthly salaries (payrolls 2 and 3 are in `deployments/testnet.json`).
+These are the events D-income proofs are built from.
+
+## The app
 
 ```bash
 npm install
 npm run dev        # http://localhost:5174, opens Brave (override: BROWSER="Google Chrome" npm run dev)
 ```
 
-**Employer view: the payroll globe.** Subsidiaries and employees on a 3D globe; "Lancer la paie" sends one
-confidential transfer per employee, and each payment travels from the Lisbon treasury as a flow on the globe,
-with the camera following the money.
-- **Vue publique** (default): what anyone reading the ledger sees. Who pays whom is public, every amount is
-  ciphertext.
-- **Vue auditeur**: amounts decrypted on this device with the employer's audit key.
+| Page | What it does |
+|---|---|
+| `/` **Employer** | The payroll globe. **Demo** mode runs a simulated 14-person payroll. **Testnet** mode (dev server only) pays the 3 testnet employees for real: the browser deposits the period's USDC, then proves and submits each `confidential_transfer` (~2 s per proof, ~40 s per payroll). A transfer is marked received only once its on-chain event decrypts to the salary under the employer's audit key. *Vue publique* shows the real ciphertexts; *Vue auditeur* shows the amounts. |
+| `/salarie` **Employee** | Reads the employee's salary events from Soroban RPC and decrypts them on the device. It opens a verifier's request link, generates the D-income proof in the browser (noir_js + bb.js, ~2 s), and returns a share link. |
+| `/verifier` **Verifier** | Creates a request (minimum monthly income), then verifies the attestation that answers it. |
 
-The current screen runs on a **demo engine** (simulated transfers, proofs and hashes, labelled in the UI).
-`web/src/payroll.ts` defines the `PayrollEngine` interface the testnet engine (OpenZeppelin Confidential Token
-SDK) implements, so the UI does not change when it is wired in.
+## D-income: circuit and protocol
 
-## Circuit — `circuits/disclose_income`
-- Built on `stellar_confidential_lib` (OpenZeppelin stellar-contracts v0.8.0), same primitives as the
-  audited circuits: contract-bound viewing key, ECDH decryption of each event's encrypted amount.
-- Constraints: correct decryption of N=3 events (I1–I6), events pairwise distinct (I7),
-  `sum − threshold ∈ [0, 2^130)` (I8–I9), verifier binding (P_R, nu) (I10).
-- 9 tests incl. adversarial: inflated salary, same event counted twice, wrong key, wrong nonce,
-  negative-threshold wrap-around. **6 597 gates.**
-- Verified off-chain with bb.js in the ZK flavour (keccak transcript, `--zk`), like the SDK's disclosures.
-  The verifier sources every public input from the on-chain events (Soroban RPC), and checks off-chain
-  that each event is a Transfer from the employer to the holder.
+**Circuit**, in `circuits/disclose_income`. It is built on `stellar_confidential_lib` (stellar-contracts
+v0.8.0), with the same primitives as the audited circuits: contract-bound viewing key, and ECDH decryption of each
+event's encrypted amount.
+- Constraints: correct decryption of N = 3 events (I1–I6), events pairwise distinct (I7),
+  `sum − threshold ∈ [0, 2^130)` (I8–I9), and verifier binding to `(P_R, ν)` (I10).
+- 9 tests (plus a fixture printer), including adversarial ones: inflated salary, same event counted twice,
+  wrong key, wrong nonce, negative-threshold wrap-around. **6 597 gates.**
+- Public inputs: `addr_f, PVK, R_e[3], σ[3], ṽ[3], threshold, P_R, ν`. Private: `sk, v[3]`.
+
+**Protocol**, in `web/src/income/dincome.ts`. One module serves both the Node scripts and the browser. It is
+modelled on the SDK's D-recipient receiver protocol.
+1. The verifier issues a request `(P_R, ν, threshold, employer)` and keeps it locally.
+2. The employee finds their last 3 transfers from the employer, decrypts them, and proves in the ZK flavour
+   (keccak transcript, `keccakZK`). The bundle carries only `(holder, 3 event references, proof)`.
+3. The verifier takes **no public input from the bundle**. It resolves each event reference on-chain and checks
+   that each one is a Transfer from the employer to the holder and that all three are distinct. It reads the holder's PVK
+   from their on-chain account, recomputes `addr_f`, takes `(P_R, ν, threshold)` from its own request, pins the
+   verification key (`web/src/income/disclose_income.vk.json`), then verifies with bb.js.
+
+`node scripts/testnet/income.ts e03 3000` runs the whole flow in Node against the live events. It then checks
+the rejections a verifier must make: a replay to another verifier, a threshold above the real income, the same
+transfer counted twice, and a threshold raised after the fact.
+
+## Reproduce
+
+Toolchain (pinned by the confidential stack, and the on-chain verifier reads only this format): nargo
+`1.0.0-beta.11`, bb / bb.js `0.87.0`, `stellar` CLI.
 
 ```bash
-./scripts/prove-income.sh    # tests → compile → real ZK proof → verify
+./scripts/prove-income.sh                       # circuit tests → compile → ZK proof → verify (bb CLI)
+node scripts/income-artifacts.mjs               # pin the compiled circuit + VK used by prover and verifier
+
+npm run testnet:deploy                          # deploy the suite over testnet USDC, onboard 4 accounts (resumable)
+npm run testnet:payroll -- "Paie 1"             # one real payroll: deposit, merge, 3 confidential transfers, audit
+node scripts/testnet/fund.mjs                   # top up the employer's USDC (friendbot XLM → testnet DEX)
+node scripts/testnet/income.ts e03 3000         # D-income end to end on testnet, plus the rejection cases
 ```
 
+`contracts/wasm/` holds the five `examples/confidential` contracts built from stellar-contracts v0.8.0
+(sha256 in `deployments/testnet.json`). Keys live in `.secrets/` (gitignored).
+
 ## Honest limits
-- OpenZeppelin's on-chain verifier currently accepts non-ZK UltraHonk proofs, so the library does not yet
-  guarantee on-chain amount privacy (zero-knowledge verification in progress). Our off-chain income
-  proof uses the ZK flavour.
-- Soroban RPC keeps ~7 days of events: the demo uses short pay periods; production needs an indexer.
-- Testnet only.
+
+- **On-chain amount privacy is not yet guaranteed by the library.** OpenZeppelin's on-chain verifier
+  currently accepts non-ZK UltraHonk proofs; zero-knowledge on-chain verification is in progress upstream.
+  Our income proof is verified off-chain, in the ZK flavour.
+- **The deposit is public.** Funding the confidential treasury from public USDC reveals the payroll's total for
+  that period. A treasury already holding confidential funds would not.
+- **The verifier binding is per browser.** A request lives in the verifier's local storage. An attestation
+  opened elsewhere still verifies, but the page warns that it was made for another request.
+- **Retention.** Soroban RPC keeps about 7 days of events, so the demo's "months" are short periods.
+  Production needs an indexer, which the SDK supports.
+- **Demo keys.** The dev server hands the testnet demo keys to the browser so that one machine can play
+  employer and employees. Production builds embed none. A real deployment would derive each `sk` from the
+  holder's wallet signature (SDK §5).
+- N = 3 is fixed by the circuit, and the threshold applies to the sum of the 3 salaries. Testnet only. The SDK is unaudited.
