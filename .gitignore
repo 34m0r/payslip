@@ -1,0 +1,7 @@
+node_modules
+dist
+circuits/*/target
+.env
+.env.*
+*.secret.json
+.stellar/

@@ -1,0 +1,9 @@
+[package]
+name = "disclose_income"
+type = "bin"
+authors = ["payslip"]
+# Toolchain pinned by the confidential token stack: nargo 1.0.0-beta.11 + bb 0.87.0.
+compiler_version = "=1.0.0"
+
+[dependencies]
+stellar_confidential_lib = { git = "https://github.com/OpenZeppelin/stellar-contracts", tag = "v0.8.0", directory = "packages/confidential/circuits/lib" }
