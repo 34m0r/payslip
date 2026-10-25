@@ -194,5 +194,18 @@
         }
       ]
     }
+  ],
+  "cashouts": [
+    {
+      "employeeId": "e03",
+      "account": "GDA72DEFDPXKCDBEIVWZ7ZTVLLU23K3OS653RWOD2HAAHMEC7U2EJ3YD",
+      "amount": "5",
+      "startedAt": "2026-10-25T18:05:40.864Z",
+      "status": "interactive",
+      "mergeTx": "daed2837066af97117e045fcac7b64c771f5c8c01d33565d839753a865ed5d0f",
+      "withdrawTx": "42dcc3e40e3794135463649c9fc6f001c07eb4c16403d659293de21c0599398e",
+      "anchorTxId": "37b1ced4-ac31-4d74-8ba9-21495a575492",
+      "interactiveUrl": "https://anchor-ref-ui-testanchor.stellar.org?transaction_id=37b1ced4-ac31-4d74-8ba9-21495a575492&token=eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIzN2IxY2VkNC1hYzMxLTRkNzQtOGJhOS0yMTQ5NWE1NzU0OTIiLCJleHAiOjE3OTI5NTIxNjMsInN1YiI6IkdEQTcyREVGRFBYS0NEQkVJVldaN1pUVkxMVTIzSzNPUzY1M1JXT0QySEFBSE1FQzdVMkVKM1lEIiwiYXVkIjpbInNlcDI0X2ludGVyYWN0aXZlIl0sImRhdGEiOnsiYW1vdW50IjoiNSIsImhvbWVfZG9tYWluIjoidGVzdGFuY2hvci5zdGVsbGFyLm9yZyIsImxhbmciOiJlbiIsImFzc2V0Ijoic3RlbGxhcjpVU0RDOkdCQkQ0N0lGNkxXSzdQN01ERVZTQ1dSN0RQVVdWM05ZM0RUUUVWRkw0TkFUNEFRSDNaTExGTEE1In0sImhvbWVfZG9tYWluIjoidGVzdGFuY2hvci5zdGVsbGFyLm9yZyJ9.Es-eIL_-L20bddeFLyjuin06Oo2VMjhJ-g-BXyOVt9o"
+    }
   ]
 }
