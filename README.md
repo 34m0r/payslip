@@ -19,11 +19,11 @@ Confidential payroll on Stellar already exists: credit to [Lucent](https://githu
 to the SDK's payroll walkthrough. Payslip's contribution is **D-income**, an aggregate-threshold
 selective-disclosure circuit.
 
-The existing disclosure circuits (the SDK's `disclose_recipient` / `disclose_sender`) reveal the **exact**
-amount of **one** transfer. D-income proves a **threshold** over **several** transfers: the "finite set of
-events + threshold" disclosure type of OpenZeppelin's
+The disclosure circuits of the Confidential Token SDK (`disclose_recipient` / `disclose_sender`) reveal the
+**exact** amount of **one** transfer. D-income proves a **threshold** over **several** transfers: the "finite set
+of events + threshold" disclosure type described in OpenZeppelin's
 [selective-disclosure specification](https://docs.openzeppelin.com/stellar-contracts/tokens/confidential/selective-disclosure),
-which had no implementation.
+and absent from the Confidential Token SDK and from the existing projects we reviewed (including Lucent).
 
 ## Live on testnet
 
