@@ -4,6 +4,7 @@ import { N, decodeLink, decryptSalary, encodeLink, findSalaryEvents, proveIncome
 import { chainClient, demoKeys, deployment, incomeProver, periodOf, txLink, usdcOf } from "./testnet/env";
 import { usdc } from "./data";
 import { Topbar } from "./Topbar";
+import { Cashout } from "./Cashout";
 
 const STAGES: { id: ProveStage; label: string }[] = [
   { id: "decrypt", label: "Déchiffrement de vos 3 derniers salaires, sur cet appareil" },
@@ -149,6 +150,8 @@ export function Employee() {
             </>
           )}
         </section>
+
+        <Cashout employeeId={employee.id} />
       </main>
     </div>
   );

@@ -21,4 +21,6 @@ declare module "virtual:payslip-testnet" {
   export const demoKeys: Record<string, string>;
   /** The employer's testnet keys, hex scalars and a Stellar secret. Dev server only. */
   export const employerKeys: { secret: string; sk: string; auditorSecret: string } | null;
+  /** Demo employees' Stellar account secrets, by employee id (cash-out). Dev server only. */
+  export const demoAccounts: Record<string, string>;
 }

@@ -61,6 +61,23 @@ npm run dev        # http://localhost:5174, opens Brave (override: BROWSER="Goog
 | `/salarie` **Employee** | Reads the employee's salary events from Soroban RPC and decrypts them on the device. It opens a verifier's request link, generates the D-income proof in the browser (noir_js + bb.js, ~2 s), and returns a share link. |
 | `/verifier` **Verifier** | Creates a request (minimum monthly income), then verifies the attestation that answers it. |
 
+### Cash-out to a bank account (SEP-10 + SEP-24)
+
+On `/salarie`, **Retirer vers ma banque** withdraws part of the employee's salary through a SEP-24 anchor
+(dev server only, it signs with the employee's testnet key). The anchor's window opens first. Only once the employee
+confirms the amount there does the browser make the confidential `withdraw` of exactly that amount to their public
+USDC (a proof verified on-chain), pay the anchor with its memo, and follow the withdrawal to `completed`. A
+cash-out resumes after a reload and never pays the anchor twice: the payment's hash is recorded before it is sent.
+
+The anchor is Payslip's own testnet anchor, `scripts/anchor/server.mjs` (SEP-1, SEP-10, SEP-24 withdraw for
+testnet USDC). The SDF test anchor caps withdrawals at 10 USDC; ours has no cap beyond the employee's balance, and
+its **bank payout is simulated**. The client (`web/src/anchor/anchor.ts`) works with any SEP-24 anchor.
+
+```bash
+npm run anchor                                  # Payslip's testnet anchor on http://localhost:8790
+node scripts/testnet/cashout.mjs e03 1500       # the same cash-out from Node (ANCHOR_DOMAIN=… for another anchor)
+```
+
 ## D-income: circuit and protocol
 
 **Circuit**, in `circuits/disclose_income`. It is built on `stellar_confidential_lib` (stellar-contracts
@@ -97,6 +114,7 @@ node scripts/income-artifacts.mjs               # pin the compiled circuit + VK 
 
 npm run testnet:deploy                          # deploy the suite over testnet USDC, onboard 4 accounts (resumable)
 npm run testnet:payroll -- "Paie 1"             # one real payroll: deposit, merge, 3 confidential transfers, audit
+npm run anchor & node scripts/testnet/cashout.mjs e03 1500   # cash-out through Payslip's testnet anchor
 node scripts/testnet/fund.mjs                   # top up the employer's USDC (friendbot XLM → testnet DEX)
 node scripts/testnet/income.ts e03 3000         # D-income end to end on testnet, plus the rejection cases
 ```
@@ -113,6 +131,9 @@ node scripts/testnet/income.ts e03 3000         # D-income end to end on testnet
   that period. A treasury already holding confidential funds would not.
 - **The verifier binding is per browser.** A request lives in the verifier's local storage. An attestation
   opened elsewhere still verifies, but the page warns that it was made for another request.
+- **Withdrawing to public USDC reveals the withdrawn amount.** A confidential off-ramp, where the anchor holds a
+  confidential account and receives a confidential_transfer, is on our roadmap. Our testnet anchor simulates the
+  bank payout.
 - **Retention.** Soroban RPC keeps about 7 days of events, so the demo's "months" are short periods.
   Production needs an indexer, which the SDK supports.
 - **Demo keys.** The dev server hands the testnet demo keys to the browser so that one machine can play

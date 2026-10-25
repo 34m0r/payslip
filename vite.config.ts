@@ -38,10 +38,13 @@ function payslipTestnet(): Plugin {
       const secrets = embedKeys && existsSync(SECRETS) ? JSON.parse(readFileSync(SECRETS, "utf8")) : null;
       const demoKeys = secrets ? Object.fromEntries(Object.entries(secrets.employees).map(([k, v]) => [k, (v as { sk: string }).sk])) : {};
       const employerKeys = secrets && serving ? secrets.employer : null;
+      // Employees' Stellar account secrets sign the cash-out (SEP-10, payment): dev server only.
+      const demoAccounts = secrets && serving ? Object.fromEntries(Object.entries(secrets.employees).map(([k, v]) => [k, (v as { secret: string }).secret])) : {};
       return [
         `export const deployment = ${JSON.stringify(deployment)};`,
         `export const demoKeys = ${JSON.stringify(demoKeys)};`,
         `export const employerKeys = ${JSON.stringify(employerKeys)};`,
+        `export const demoAccounts = ${JSON.stringify(demoAccounts)};`,
       ].join("\n");
     },
     configureServer(server) {
