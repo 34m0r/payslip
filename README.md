@@ -45,8 +45,9 @@ of them: sender and recipient are visible, the amount is a ciphertext.
 - Rafael Oliveira (São Paulo): [`1ea93231…`](https://stellar.expert/explorer/testnet/tx/1ea93231ea1cc1b24ee09fe514661775afe8fa0fdd3056f4139437f436a0f60b)
 - Adaeze Okafor (Lagos): [`787541ec…`](https://stellar.expert/explorer/testnet/tx/787541ec67f95d787de195ada485f950bcc7fca7844df5754e44f0a15e4677d0)
 
-Each employee has since received three monthly salaries (payrolls 2 and 3 are in `deployments/testnet.json`).
-These are the events D-income proofs are built from.
+Since then, more than 25 confidential transfers and 11 cash-outs through Payslip's anchor have run on testnet, and
+the public demo adds more with every visitor. The scripted payrolls and cash-outs are recorded in
+`deployments/testnet.json`. An employee's last three salaries are the events their D-income proof is built from.
 
 ## Try it: https://payslip-five-theta.vercel.app
 
@@ -56,8 +57,9 @@ Everything below runs on Stellar testnet, from the public site, with nothing to 
    transfers, about 40 s. Open a transfer for its stellar.expert link: the amount is a ciphertext. Then switch to
    *Vue auditeur*: the amounts, decrypted from the chain with the employer's audit key.
 2. **Prove.** On `/verifier`, create a request (e.g. 3 000 USDC/month) and open the link it gives: `/salarie` reads
-   the employee's real salaries from the chain and generates the D-income proof **in your browser** (~2 s). Open the
-   attestation link: ✓, verified against chain state, no amount shown.
+   the employee's real salaries from the chain and generates the D-income proof **in your browser** (a few seconds;
+   ~2 s once the browser has fetched the proving parameters). It returns a short link and a QR code. Open it: ✓,
+   verified against chain state, no amount shown, and a printable income certificate with a QR code to re-verify.
 3. **Cash out.** On `/salarie`, **Retirer vers ma banque** (up to 50 USDC on the public demo): confirm the amount
    in the anchor's window, and follow the withdrawal through Payslip's anchor to `completed`.
 
@@ -74,8 +76,8 @@ npm run dev        # http://localhost:5174, opens Brave (override: BROWSER="Goog
 | Page | What it does |
 |---|---|
 | `/` **Employer** | The payroll globe. **Demo** mode runs a simulated 14-person payroll. **Testnet** mode pays the 3 testnet employees for real: the server deposits the period's USDC, then proves and submits each `confidential_transfer` (~2 s per proof, ~40 s per payroll), streaming each step to the globe. A transfer is marked received only once its on-chain event decrypts to the salary under the employer's audit key. *Vue publique* shows the real ciphertexts; *Vue auditeur* shows the amounts. |
-| `/salarie` **Employee** | Reads the employee's salary events from Soroban RPC and decrypts them on the device. It opens a verifier's request link, generates the D-income proof in the browser (noir_js + bb.js, ~2 s), and returns a share link. |
-| `/verifier` **Verifier** | Creates a request (minimum monthly income), then verifies the attestation that answers it. |
+| `/salarie` **Employee** | Reads the employee's salary events from Soroban RPC and decrypts them on the device. It opens a verifier's request link, generates the D-income proof in the browser (noir_js + bb.js, a few seconds), and returns a short link with a QR code. |
+| `/verifier` **Verifier** | Creates a request (minimum monthly income), then verifies the attestation that answers it, and prints it as an income certificate (minimum, employer, period, verification time, QR code to re-verify). Short links are stored server-side (Vercel Blob): transport only, every input is still rebuilt from chain state. |
 
 ### Cash-out to a bank account (SEP-10 + SEP-24)
 

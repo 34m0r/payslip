@@ -1,24 +1,25 @@
 # Demo video script (≈ 3 min)
 
-Narration in English; the UI is in French. Record on the dev server (`npm run dev`) so the Testnet switch
-and the employee keys are available. Before recording: run `node scripts/testnet/fund.mjs` (the employer
-needs 10 900 USDC per payroll), open three tabs (`/`, `/verifier`, stellar.expert), and clear the verifier's
-local storage so the request you create on camera is the only one.
+Narration in English; the UI is in French. Record on the public site, https://payslip-five-theta.vercel.app, in a
+fresh Brave window. Before recording: open the verifier page once (the first proof downloads the proving
+parameters, so it is slower), and check that no payroll ran in the last 3 minutes (the public demo allows one
+every 3 minutes). Keep stellar.expert open in a second tab.
 
 | Time | Screen | Narration |
 |---|---|---|
 | 0:00 | Globe, Demo mode, slowly rotating | "Salaries are the most sensitive payments a company makes. Put payroll on a public blockchain and every salary becomes public. Payslip fixes that, and adds what's missing: a way to prove your income without revealing it." |
-| 0:15 | Switch to **Testnet**. Three employees: Lisbon, São Paulo, Lagos | "This is Atlântica Labs, paying people on three continents in USDC on Stellar. Testnet, real transactions." |
-| 0:22 | Click **Lancer la paie**. Camera follows each flow; the phase line reads "Preuve du virement…" | "The employer's browser deposits the payroll into a confidential balance, then for each employee generates a zero-knowledge proof (about two seconds) and submits a confidential transfer. This runs on OpenZeppelin's confidential token, and the proof is checked on-chain by the UltraHonk verifier." |
-| 0:50 | All three **Reçu**. Click a row, open the tx link on stellar.expert | "On the explorer anyone sees Atlântica Labs paid Clara. The amount is a ciphertext." |
-| 1:02 | Back, toggle **Vue auditeur** | "The employer is its own auditor: with its audit key it decrypts the payroll it just sent, read back from the chain." |
-| 1:12 | `/verifier`: set 3 000, **Créer la demande**, copy link | "Now Clara wants to rent a flat. Her landlord asks for proof of at least 3 000 USDC a month. The request carries the landlord's key and a fresh nonce, so the answer is bound to him." |
-| 1:28 | Open the link: `/salarie`, three salaries decrypted locally | "Clara opens it. Her browser reads her last three salaries from the chain and decrypts them with her key. Nothing leaves the device." |
-| 1:40 | **Créer l'attestation**: the four steps tick, ~2 s | "She proves that her last three salaries from Atlântica Labs add up to at least 9 000, without revealing them or their total. This is our circuit, D-income. The SDK's disclosure circuits reveal the exact amount of one transfer; D-income proves a threshold over several, a disclosure type described in OpenZeppelin's specification and absent from the SDK and from the existing projects we reviewed." |
-| 2:00 | Open the attestation link: green ✓ verdict | "The landlord opens the link. The page trusts nothing in it: it re-reads the three transfers on Stellar, checks that each is from Atlântica Labs to Clara, reads her public key on-chain, rebuilds every public input, and verifies the proof. Income of at least 3 000 a month. No amount anywhere." |
-| 2:25 | Scroll "Ce qui a été vérifié" and the three ciphertext rows | "Even the landlord only ever sees ciphertexts." |
-| 2:35 | Terminal: `node scripts/testnet/income.ts e03 3000`, the four rejections | "And what a verifier must refuse, it refuses: a proof replayed to someone else, a threshold above the real income, the same salary counted twice, a threshold raised after the fact." |
-| 2:48 | README "Honest limits" | "Honest limits: the on-chain verifier doesn't yet enforce zero-knowledge upstream, and RPC keeps a week of events. Payslip: confidential payroll, and a payslip that proves without revealing." |
+| 0:15 | Switch to **Testnet**: Lisbon, São Paulo, Lagos | "This is Atlântica Labs, paying people on three continents in USDC on Stellar. Testnet, real transactions, from the public site." |
+| 0:22 | **Lancer la paie**; the camera follows each flow, the phase line reads "Preuve du virement…" | "For each employee, a zero-knowledge proof is generated and a confidential transfer submitted: OpenZeppelin's confidential token, with every proof checked on-chain by the UltraHonk verifier." |
+| 0:50 | All three **Reçu**; click a row, open its stellar.expert link | "On the explorer anyone sees Atlântica Labs paid Clara. The amount is a ciphertext." |
+| 1:00 | Toggle **Vue auditeur** | "The employer is its own auditor: its audit key decrypts the payroll, read back from the chain." |
+| 1:08 | `/verifier`: 3 000, **Créer la demande**, open the link | "Now Clara wants to rent a flat. Her landlord asks for proof of at least 3 000 USDC a month. His request carries his key and a fresh nonce, so the answer is bound to him." |
+| 1:20 | `/salarie`: three salaries with their dates, decrypted locally | "Clara opens it. Her browser reads her last three salaries from the chain and decrypts them with her key." |
+| 1:30 | **Créer l'attestation**: the four steps tick; the QR code appears | "She proves her last three salaries from Atlântica Labs add up to at least 9 000, revealing neither the amounts nor their total. This is our circuit, D-income. The SDK's disclosure circuits reveal the exact amount of one transfer; D-income proves a threshold over several." |
+| 1:52 | Open the attestation: green ✓, then scroll to the certificate | "The landlord scans the QR code. The page trusts nothing in the link: it re-reads the three transfers on Stellar, checks they go from Atlântica Labs to Clara, rebuilds every public input, and verifies the proof. Income of at least 3 000 a month. No amount anywhere." |
+| 2:12 | **Imprimer l'attestation**: the certificate | "And a certificate for the rental file, with a QR code anyone can scan to re-verify it against the chain." |
+| 2:22 | Back on `/salarie`: **Retirer vers ma banque**, 20 USDC, tick the warning, confirm in the anchor's window | "Finally, getting paid has to end in a bank account. Clara cashes out through Payslip's own SEP-24 anchor. The app warns her: the amount she withdraws becomes public; her salary stays private while it stays in Payslip." |
+| 2:40 | The steps reach "Virement vers votre banque" | "A confidential withdraw with its proof, a payment to the anchor, and the bank transfer, simulated on testnet." |
+| 2:50 | README, "Honest limits" | "Honest limits: zero-knowledge on-chain verification is still in progress upstream, and RPC keeps a week of events. Payslip: confidential payroll, and a payslip that proves without revealing." |
 
-**Fallback.** If testnet is slow on the day, record the payroll separately and cut. Every hash shown
-is also listed in `deployments/testnet.json`.
+**Fallback.** If testnet is slow on the day, record the payroll and the cash-out separately and cut. If the
+payroll shows "réessayez dans … min", someone just ran one: wait, or record the proof part first.
