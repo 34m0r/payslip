@@ -1,6 +1,16 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/payroll.js": {
+      "maxDuration": 300,
+      "includeFiles": "{node_modules/stellar-confidential-token-sdk/circuits/**,node_modules/@aztec/bb.js/dest/node/**,node_modules/@noir-lang/*/nodejs/**}"
+    },
+    "api/cashout.js": {
+      "maxDuration": 300,
+      "includeFiles": "{node_modules/stellar-confidential-token-sdk/circuits/**,node_modules/@aztec/bb.js/dest/node/**,node_modules/@noir-lang/*/nodejs/**}"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

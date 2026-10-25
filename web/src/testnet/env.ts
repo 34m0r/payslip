@@ -1,10 +1,18 @@
 /** Browser side of the testnet deployment: chain client, bb.js loader, the pinned D-income prover. */
 import { ChainClient, proverFromArtifact, setUltraHonkBackendLoader, type CircuitProver } from "stellar-confidential-token-sdk";
-import { demoAccounts, deployment, demoKeys, employerKeys } from "virtual:payslip-testnet";
+import { deployment, demoKeys } from "virtual:payslip-testnet";
 import artifact from "../income/disclose_income.json";
 import vkPin from "../income/disclose_income.vk.json";
 
-export { demoAccounts, deployment, demoKeys, employerKeys };
+export { deployment, demoKeys };
+
+export interface TestnetCapabilities { payroll: boolean; cashout: boolean; cashoutMax: number; cooldown: number }
+let caps: Promise<TestnetCapabilities | null> | null = null;
+/** What the server can run (payroll, cash-out): null when its testnet keys are not configured. */
+export function testnetCapabilities(): Promise<TestnetCapabilities | null> {
+  caps ??= fetch("/api/testnet").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  return caps;
+}
 export const RPC_URL = "https://soroban-testnet.stellar.org";
 export const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
 export const EXPERT = "https://stellar.expert/explorer/testnet";

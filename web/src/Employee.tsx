@@ -83,6 +83,7 @@ export function Employee() {
           <p className="eyebrow">Espace salarié · testnet</p>
           <h1>{employee.name}</h1>
           <p className="muted">Chez {deployment.employer.name}, {employee.city}. Vos salaires arrivent chiffrés : seule votre clé les lit.</p>
+          <p className="muted small">Comptes de démonstration sur Stellar testnet : salaires fictifs, transactions réelles.</p>
           {employees.length > 1 && (
             <label className="field field--inline">
               <span>Compte de démo</span>

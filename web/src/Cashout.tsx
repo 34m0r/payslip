@@ -1,46 +1,28 @@
 import { useEffect, useState } from "react";
-import { Asset, Horizon, Keypair, Operation, TransactionBuilder } from "@stellar/stellar-sdk";
-import {
-  CircuitProver,
-  LocalStorageStore,
-  StateEngine,
-  addressToField,
-  deriveKeys,
-  submitMerge,
-  submitWithdraw,
-  buildWithdrawWitness,
-  keypairSigner,
-} from "stellar-confidential-token-sdk";
-import withdrawCircuit from "stellar-confidential-token-sdk/circuits/withdraw.json";
-import { buildAnchorPaymentTx, discover, getTx, pollUntil, sep10, startWithdraw } from "./anchor/anchor";
-import { NETWORK_PASSPHRASE, chainClient, demoAccounts, demoKeys, deployment, txLink, usdcOf } from "./testnet/env";
+import { LocalStorageStore, StateEngine, addressToField, deriveKeys } from "stellar-confidential-token-sdk";
+import { chainClient, demoKeys, deployment, testnetCapabilities, txLink, usdcOf } from "./testnet/env";
 import { usdc } from "./data";
 
-/** Payslip's testnet anchor, served by the app itself (api/anchor.js; the dev server in dev):
- *  no withdrawal cap, bank payout simulated. */
-const ANCHOR_DOMAIN = location.host;
-const HORIZON = new Horizon.Server("https://horizon-testnet.stellar.org");
-const USDC_ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
-const USDC = new Asset("USDC", USDC_ISSUER);
-const toUnits = (amount: string) => BigInt(Math.round(Number(amount) * 1e7));
-
-type Step = "auth" | "form" | "withdraw" | "pay" | "payout";
+/**
+ * Cash-out to a bank account through Payslip's own testnet anchor (SEP-10 + SEP-24, same domain).
+ * The server signs (server/testnet.js via /api/cashout): no signing key reaches the browser. The
+ * browser opens the anchor's page, where the employee confirms the amount, then asks the server to
+ * settle it: confidential withdraw of exactly that amount to public USDC, payment to the anchor.
+ */
+type Step = "auth" | "form" | "settle" | "payout";
 const STEPS: { id: Step; label: string }[] = [
-  { id: "auth", label: "Connexion à l'anchor (SEP-10, signée par votre clé)" },
+  { id: "auth", label: "Ouverture du retrait chez l'anchor (SEP-10, SEP-24)" },
   { id: "form", label: "Confirmation du montant dans la fenêtre de l'anchor" },
-  { id: "withdraw", label: "Retrait confidentiel vers votre USDC public (preuve vérifiée on-chain)" },
-  { id: "pay", label: "Paiement à l'anchor, avec son mémo" },
+  { id: "settle", label: "Retrait confidentiel vers l'USDC public (preuve on-chain), puis paiement à l'anchor" },
   { id: "payout", label: "Virement vers votre banque (simulé, testnet)" },
 ];
 
-/** What survives a reload, so a cash-out resumes where it stopped and never pays twice. */
+/** What survives a reload, so a cash-out resumes where it stopped (the server never pays twice). */
 interface Saved {
-  anchorTxId: string;
+  id: string;
   url: string;
   openedAt: number;
   withdrawTx?: string;
-  /** Recorded BEFORE submitting: its hash and expiry decide, on resume, whether it already went through. */
-  payment?: { hash: string; maxTime: number };
   paymentTx?: string;
   completed?: { amount: string; at: string };
 }
@@ -48,11 +30,18 @@ const KEY = (id: string) => `payslip.cashout.${id}`;
 const load = (id: string): Saved | null => { try { return JSON.parse(localStorage.getItem(KEY(id)) ?? "null"); } catch { return null; } };
 const store = (id: string, s: Saved | null) => { try { s ? localStorage.setItem(KEY(id), JSON.stringify(s)) : localStorage.removeItem(KEY(id)); } catch { /* private mode: no resume */ } };
 
-let withdrawProver: CircuitProver | null = null;
+async function api<T>(body: Record<string, unknown>): Promise<T> {
+  const res = await fetch("/api/cashout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error ?? `erreur ${res.status}`);
+  return json as T;
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+type AnchorTx = { status: string; amount_in?: string; amount_out?: string; stellar_transaction_id?: string };
 
-export function Cashout({ employeeId, onDone }: { employeeId: string; onDone?: () => void }) {
+export function Cashout({ employeeId }: { employeeId: string }) {
   const employee = deployment?.employees.find((e) => e.id === employeeId);
-  const secret = demoAccounts[employeeId];
+  const [max, setMax] = useState<number | null>(null); // server cap; null: cash-out unavailable
   const [balance, setBalance] = useState<bigint | null>(null);
   const [amount, setAmount] = useState("");
   const [ack, setAck] = useState(false);
@@ -61,9 +50,17 @@ export function Cashout({ employeeId, onDone }: { employeeId: string; onDone?: (
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
-  const engine = () => {
+  useEffect(() => { testnetCapabilities().then((c) => setMax(c?.cashout ? c.cashoutMax : null)); }, []);
+
+  const readBalance = async () => {
     const keys = deriveKeys(BigInt(demoKeys[employeeId]), addressToField(deployment!.contracts.token));
-    return new StateEngine({ client: chainClient(), store: new LocalStorageStore("payslip:state:"), keys, address: employee!.address, fromLedger: deployment!.fromLedger });
+    const engine = new StateEngine({ client: chainClient(), store: new LocalStorageStore("payslip:state:"), keys, address: employee!.address, fromLedger: deployment!.fromLedger });
+    for (let i = 0; i < 4; i++) {
+      const s = await engine.sync().catch(() => null);
+      if (s) return s.spendable.v + s.receiving.v;
+      await sleep(2500);
+    }
+    throw new Error("lecture du solde impossible");
   };
 
   useEffect(() => {
@@ -71,15 +68,13 @@ export function Cashout({ employeeId, onDone }: { employeeId: string; onDone?: (
     setStep(null);
     setError(null);
     setBalance(null);
-    if (!employee || !secret) return;
+    if (!employee || !demoKeys[employeeId]) return;
     let live = true;
-    engine().sync()
-      .then((s) => live && setBalance(s.spendable.v + s.receiving.v))
-      .catch((e) => live && setError(`Lecture du solde impossible : ${e.message}`));
+    readBalance().then((b) => live && setBalance(b)).catch((e) => live && setError(e.message));
     return () => { live = false; };
   }, [employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!deployment || !employee || !secret) return null;
+  if (!deployment || !employee || max === null) return null;
 
   const update = (s: Saved | null) => { store(employeeId, s); setSaved(s); };
   const unfinished = saved && !saved.completed;
@@ -88,97 +83,45 @@ export function Cashout({ employeeId, onDone }: { employeeId: string; onDone?: (
     setRunning(true);
     setError(null);
     try {
-      const kp = Keypair.fromSecret(secret);
-      const account = kp.publicKey();
       setStep("auth");
-      const anchor = await discover(ANCHOR_DOMAIN).catch(() => {
-        throw new Error(`L'anchor testnet ne répond pas sur ${ANCHOR_DOMAIN} (clés de l'anchor absentes ?)`);
-      });
-      const token = await sep10(anchor, account, kp);
-
-      // Open (or reopen, if its short-lived link expired unused) the anchor's interactive withdrawal.
       let s = load(employeeId);
-      const stale = s && !s.payment && Date.now() - s.openedAt > 50 * 60_000 && (await getTx(anchor, token, s.anchorTxId)).status === "incomplete";
-      if (!s || s.completed || stale) {
-        const { url, id } = await startWithdraw(anchor, token, { assetCode: "USDC", account, amount });
-        s = { anchorTxId: id, url, openedAt: Date.now() };
+      // A cash-out whose interactive link expired before the employee confirmed is reopened.
+      if (s && !s.completed && Date.now() - s.openedAt > 50 * 60_000) {
+        const t = await api<AnchorTx>({ action: "status", employeeId, id: s.id });
+        if (t.status === "incomplete") s = null;
+      }
+      if (!s || s.completed) {
+        const { id, url } = await api<{ id: string; url: string }>({ action: "start", employeeId, amount });
+        s = { id, url, openedAt: Date.now() };
         update(s);
       }
-      let t = await getTx(anchor, token, s.anchorTxId);
+      let t = await api<AnchorTx>({ action: "status", employeeId, id: s.id });
       if (t.status === "incomplete") {
         if (popup && !popup.closed) popup.location.href = s.url;
         else window.open(s.url, "payslip-anchor", "popup,width=480,height=640");
       } else popup?.close();
 
       setStep("form");
-      t = await pollUntil(anchor, token, s.anchorTxId, ["pending_user_transfer_start", "pending_anchor", "completed"], { intervalMs: 2000, timeoutMs: 30 * 60_000 });
+      while (t.status === "incomplete") { await sleep(2000); t = await api<AnchorTx>({ action: "status", employeeId, id: s.id }); }
 
-      if (t.status === "pending_user_transfer_start" && !s.paymentTx) {
-        // Withdraw exactly what the anchor asks for, minus any public USDC already there (a
-        // withdraw that went through before a reload). Only now does an amount become public.
-        setStep("withdraw");
-        const need = toUnits(t.amount_in!);
-        const acct = await HORIZON.loadAccount(account);
-        const line = acct.balances.find((b) => "asset_code" in b && b.asset_code === "USDC" && b.asset_issuer === USDC_ISSUER);
-        const have = line ? toUnits(line.balance) : 0n;
-        if (have < need) {
-          if (!line) {
-            const tx = new TransactionBuilder(acct, { fee: "10000", networkPassphrase: NETWORK_PASSPHRASE })
-              .addOperation(Operation.changeTrust({ asset: USDC }))
-              .setTimeout(120).build();
-            tx.sign(kp);
-            await HORIZON.submitTransaction(tx);
-          }
-          const e = engine();
-          let state = await e.sync();
-          const client = chainClient();
-          const signer = keypairSigner(secret, NETWORK_PASSPHRASE);
-          if (state.receiving.v > 0n) { await submitMerge(client, signer, account); state = await e.sync(); }
-          const { v, r } = await e.spendableForProof();
-          const amountUnits = need - have;
-          if (v < amountUnits) throw new Error(`Solde confidentiel insuffisant : ${usdc(usdcOf(v))}`);
-          const w = buildWithdrawWitness({ keys: deriveKeys(BigInt(demoKeys[employeeId]), addressToField(deployment!.contracts.token)), v, r, amount: amountUnits, kAudS: await client.auditorKey(0) });
-          withdrawProver ??= new CircuitProver(withdrawCircuit as never);
-          const { proof } = await withdrawProver.prove(w.inputs);
-          const res = await submitWithdraw(client, signer, account, account, amountUnits, w, proof);
-          s = { ...s, withdrawTx: res.hash };
-          update(s);
-        }
-
-        // Pay the anchor once. A payment recorded before a reload is looked up first: found → done;
-        // not found but still valid → wait for it; expired unseen → it can never land, pay anew.
-        setStep("pay");
-        if (s.payment) {
-          for (;;) {
-            const seen = await HORIZON.transactions().transaction(s.payment.hash).call().catch(() => null);
-            if (seen?.successful) { s = { ...s, paymentTx: s.payment.hash }; update(s); break; }
-            if (Date.now() / 1000 > s.payment.maxTime + 10) { s = { ...s, payment: undefined }; update(s); break; }
-            await new Promise((r) => setTimeout(r, 3000));
-          }
-        }
-        if (!s.paymentTx) {
-          const tx = await buildAnchorPaymentTx(account, kp, USDC, t);
-          s = { ...s, payment: { hash: tx.hash().toString("hex"), maxTime: Number(tx.timeBounds?.maxTime ?? 0) } };
-          update(s);
-          await HORIZON.submitTransaction(tx);
-          s = { ...s, paymentTx: s.payment!.hash };
-          update(s);
-        }
+      if (t.status === "pending_user_transfer_start") {
+        setStep("settle");
+        const r = await api<{ withdrawTx?: string; paymentTx?: string }>({ action: "settle", employeeId, id: s.id });
+        s = { ...s, withdrawTx: r.withdrawTx ?? s.withdrawTx, paymentTx: r.paymentTx ?? s.paymentTx };
+        update(s);
       }
 
       setStep("payout");
-      const done = await pollUntil(anchor, token, s.anchorTxId, ["completed"], { intervalMs: 2000, timeoutMs: 30 * 60_000 });
-      update({ ...s, completed: { amount: done.amount_out ?? done.amount_in ?? "", at: new Date().toISOString() } });
+      while (t.status !== "completed") {
+        if (["error", "expired", "refunded"].includes(t.status)) throw new Error(`l'anchor a répondu « ${t.status} »`);
+        await sleep(2000);
+        t = await api<AnchorTx>({ action: "status", employeeId, id: s.id });
+      }
+      update({ ...s, paymentTx: s.paymentTx ?? t.stellar_transaction_id, completed: { amount: t.amount_out ?? t.amount_in ?? "", at: new Date().toISOString() } });
       setStep(null);
       setAmount("");
       setAck(false);
-      onDone?.();
-      // The RPC can lag the withdraw event by a few seconds: retry the balance read.
-      for (let i = 0; i < 4; i++) {
-        const st = await engine().sync().catch(() => null);
-        if (st) { setBalance(st.spendable.v + st.receiving.v); break; }
-        await new Promise((r) => setTimeout(r, 2500));
-      }
+      readBalance().then(setBalance).catch(() => {});
     } catch (e) {
       popup?.close();
       setError(String((e as Error)?.message ?? e).split("\n")[0]);
@@ -189,19 +132,19 @@ export function Cashout({ employeeId, onDone }: { employeeId: string; onDone?: (
   // The popup must open synchronously in the click handler, or Brave blocks it.
   const start = () => {
     const popup = window.open("", "payslip-anchor", "popup,width=480,height=640");
-    popup?.document.write(`<p style="font:16px system-ui;padding:24px">Connexion à l'anchor…</p>`);
+    popup?.document.write(`<p style="font:16px system-ui;padding:24px">Ouverture du retrait…</p>`);
     run(popup);
   };
 
-  const max = balance !== null ? usdcOf(balance) : null;
-  const valid = Number(amount) > 0 && (max === null || Number(amount) <= max);
+  const cap = Math.min(max, balance !== null ? usdcOf(balance) : max);
+  const valid = Number(amount) > 0 && Number(amount) <= cap;
   const at = step ? STEPS.findIndex((s) => s.id === step) : -1;
 
   return (
     <section className="block" aria-labelledby="h-cashout">
       <h2 id="h-cashout">Retirer vers ma banque</h2>
       <p className="muted small">
-        Solde confidentiel : <strong>{balance === null ? "…" : usdc(usdcOf(balance))}</strong>. Retrait via l'anchor testnet de Payslip (SEP-24), virement bancaire simulé.
+        Solde confidentiel : <strong>{balance === null ? "…" : usdc(usdcOf(balance))}</strong>. Retrait via l'anchor testnet de Payslip (SEP-24), virement bancaire simulé, {max} USDC maximum sur la démo publique.
       </p>
       <p className="request">Le montant retiré devient public sur la blockchain : votre salaire reste confidentiel tant qu'il reste dans Payslip.</p>
 
@@ -216,7 +159,7 @@ export function Cashout({ employeeId, onDone }: { employeeId: string; onDone?: (
         <>
           <label className="field">
             <span>Montant à retirer (USDC)</span>
-            <input type="number" min={0} step="any" placeholder="ex. 500" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input type="number" min={0} max={cap} step="any" placeholder={`jusqu'à ${max}`} value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           <label className="check">
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />

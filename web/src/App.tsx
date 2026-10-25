@@ -4,11 +4,10 @@ import { Decrypt } from "./Decrypt";
 import { Topbar } from "./Topbar";
 import { COMPANY, EMPLOYEES, HUBS, hubOf, usdc } from "./data";
 import { DemoPayrollEngine, ciphertextFor, initialTransfers, type PayrollEngine, type Transfer, type TransferStatus } from "./payroll";
-import { deployment, employerKeys } from "virtual:payslip-testnet";
+import { deployment } from "virtual:payslip-testnet";
+import { testnetCapabilities } from "./testnet/env";
 
 type Mode = "demo" | "testnet";
-// Testnet mode needs the employer's keys, which only the dev server embeds.
-const TESTNET = !!(deployment && employerKeys);
 const TESTNET_IDS = new Set(deployment?.employees.map((e) => e.id) ?? []);
 const rosterFor = (mode: Mode) => (mode === "testnet" ? EMPLOYEES.filter((e) => TESTNET_IDS.has(e.id)) : EMPLOYEES);
 
@@ -24,6 +23,9 @@ const STATUS: Record<TransferStatus, string> = {
 export function App() {
   const [view, setView] = useState<View>("public");
   const [mode, setMode] = useState<Mode>("demo");
+  // Testnet mode is offered when the server can sign payrolls (its keys are configured).
+  const [testnetAvailable, setTestnetAvailable] = useState(false);
+  useEffect(() => { if (deployment) testnetCapabilities().then((c) => setTestnetAvailable(!!c?.payroll)); }, []);
   const employees = useMemo(() => rosterFor(mode), [mode]);
   const [runId, setRunId] = useState(1);
   const [transfers, setTransfers] = useState<Transfer[]>(() => initialTransfers(1));
@@ -90,7 +92,7 @@ export function App() {
           <button role="radio" aria-checked={view === "public"} onClick={() => setView("public")}>Vue publique</button>
           <button role="radio" aria-checked={view === "auditor"} onClick={() => setView("auditor")}>Vue auditeur</button>
         </div>
-        {TESTNET ? (
+        {testnetAvailable ? (
           <div className="viewswitch" role="radiogroup" aria-label="Données">
             <button role="radio" aria-checked={mode === "demo"} onClick={() => switchMode("demo")} disabled={running}>Démo</button>
             <button role="radio" aria-checked={mode === "testnet"} onClick={() => switchMode("testnet")} disabled={running}>Testnet</button>

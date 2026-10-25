@@ -48,6 +48,22 @@ of them: sender and recipient are visible, the amount is a ciphertext.
 Each employee has since received three monthly salaries (payrolls 2 and 3 are in `deployments/testnet.json`).
 These are the events D-income proofs are built from.
 
+## Try it: https://payslip-five-theta.vercel.app
+
+Everything below runs on Stellar testnet, from the public site, with nothing to install:
+
+1. **Pay.** On `/`, switch the globe to **Testnet** and click **Lancer la paie**: three real confidential
+   transfers, about 40 s. Open a transfer for its stellar.expert link: the amount is a ciphertext. Then switch to
+   *Vue auditeur*: the amounts, decrypted from the chain with the employer's audit key.
+2. **Prove.** On `/verifier`, create a request (e.g. 3 000 USDC/month) and open the link it gives: `/salarie` reads
+   the employee's real salaries from the chain and generates the D-income proof **in your browser** (~2 s). Open the
+   attestation link: ✓, verified against chain state, no amount shown.
+3. **Cash out.** On `/salarie`, **Retirer vers ma banque** (up to 50 USDC on the public demo): confirm the amount
+   in the anchor's window, and follow the withdrawal through Payslip's anchor to `completed`.
+
+The demo accounts' salaries are fictitious, their transactions real. To keep the public demo usable for every
+visitor, a payroll can start at most every 3 minutes and a cash-out is capped at 50 USDC.
+
 ## The app
 
 ```bash
@@ -57,17 +73,26 @@ npm run dev        # http://localhost:5174, opens Brave (override: BROWSER="Goog
 
 | Page | What it does |
 |---|---|
-| `/` **Employer** | The payroll globe. **Demo** mode runs a simulated 14-person payroll. **Testnet** mode (dev server only) pays the 3 testnet employees for real: the browser deposits the period's USDC, then proves and submits each `confidential_transfer` (~2 s per proof, ~40 s per payroll). A transfer is marked received only once its on-chain event decrypts to the salary under the employer's audit key. *Vue publique* shows the real ciphertexts; *Vue auditeur* shows the amounts. |
+| `/` **Employer** | The payroll globe. **Demo** mode runs a simulated 14-person payroll. **Testnet** mode pays the 3 testnet employees for real: the server deposits the period's USDC, then proves and submits each `confidential_transfer` (~2 s per proof, ~40 s per payroll), streaming each step to the globe. A transfer is marked received only once its on-chain event decrypts to the salary under the employer's audit key. *Vue publique* shows the real ciphertexts; *Vue auditeur* shows the amounts. |
 | `/salarie` **Employee** | Reads the employee's salary events from Soroban RPC and decrypts them on the device. It opens a verifier's request link, generates the D-income proof in the browser (noir_js + bb.js, ~2 s), and returns a share link. |
 | `/verifier` **Verifier** | Creates a request (minimum monthly income), then verifies the attestation that answers it. |
 
 ### Cash-out to a bank account (SEP-10 + SEP-24)
 
-On `/salarie`, **Retirer vers ma banque** withdraws part of the employee's salary through a SEP-24 anchor
-(dev server only, it signs with the employee's testnet key). The anchor's window opens first. Only once the employee
-confirms the amount there does the browser make the confidential `withdraw` of exactly that amount to their public
-USDC (a proof verified on-chain), pay the anchor with its memo, and follow the withdrawal to `completed`. A
-cash-out resumes after a reload and never pays the anchor twice: the payment's hash is recorded before it is sent.
+On `/salarie`, **Retirer vers ma banque** withdraws part of the employee's salary through a SEP-24 anchor.
+The anchor's window opens first. Only once the employee confirms the amount there does the server make the
+confidential `withdraw` of exactly that amount to their public USDC (a proof verified on-chain), pay the anchor with
+its memo, and the page follow the withdrawal to `completed`. A cash-out resumes after a reload and never pays the
+anchor twice: the server finds an existing payment with that memo on-chain before paying.
+
+### Who signs what
+
+No signing key ever reaches the browser. Payrolls and cash-outs are proven and signed by the server
+(`server/testnet.js`, behind `api/payroll.js` and `api/cashout.js` on Vercel and the dev server locally), with the
+testnet keys in its environment (`PAYSLIP_TESTNET_KEYS`). A visitor can only trigger these fixed actions: a payroll
+always pays the three demo employees their salaries, a cash-out always goes from an employee to Payslip's anchor.
+The **income proof is generated in the employee's browser**: the page holds only the employees' confidential read
+keys, which decrypt and prove but move no funds.
 
 The anchor is Payslip's own testnet anchor, served by the app on its own domain: `/.well-known/stellar.toml`,
 `/auth` (SEP-10) and `/sep24/*` (SEP-24 withdraw for testnet USDC), by `api/anchor.js` on Vercel and by the dev
@@ -77,7 +102,9 @@ from Horizon on each request. The SDF test anchor caps withdrawals at 10 USDC; o
 balance, and its **bank payout is simulated**. The client (`web/src/anchor/anchor.ts`) works with any SEP-24 anchor.
 
 On Vercel the anchor needs three environment variables: `ANCHOR_SIGNING_SECRET`, `ANCHOR_DISTRIBUTION_SECRET` and
-`ANCHOR_JWT_SECRET` (testnet keys, created in `.secrets/anchor.secret.json`).
+`ANCHOR_JWT_SECRET` (testnet keys, created in `.secrets/anchor.secret.json`). The testnet actions need
+`PAYSLIP_TESTNET_KEYS` (the JSON of `.secrets/testnet.secret.json`), and `PAYSLIP_DEMO_KEYS=1` at build time puts the
+employees' read keys in the public bundle.
 
 ```bash
 node scripts/testnet/cashout.mjs e03 1500       # the same cash-out from Node, through the dev server's anchor
@@ -141,7 +168,8 @@ node scripts/testnet/income.ts e03 3000         # D-income end to end on testnet
   bank payout.
 - **Retention.** Soroban RPC keeps about 7 days of events, so the demo's "months" are short periods.
   Production needs an indexer, which the SDK supports.
-- **Demo keys.** The dev server hands the testnet demo keys to the browser so that one machine can play
-  employer and employees. Production builds embed none. A real deployment would derive each `sk` from the
-  holder's wallet signature (SDK §5).
+- **Demo keys.** One server plays the employer and the three employees: it holds their testnet signing keys,
+  and the public site holds the employees' read keys so anyone can generate an income proof. In a real
+  deployment each party keeps its own keys: the employer's payroll is proven in its own browser or backend, and each
+  employee derives `sk` from a wallet signature (SDK §5) and signs their own cash-out.
 - N = 3 is fixed by the circuit, and the threshold applies to the sum of the 3 salaries. Testnet only. The SDK is unaudited.

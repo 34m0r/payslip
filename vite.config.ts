@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -8,6 +9,9 @@ const DEPLOYMENT = join(__dirname, "deployments/testnet.json");
 const SECRETS = join(__dirname, ".secrets/testnet.secret.json");
 
 /** The anchor's testnet keys, from .secrets/ in dev (on Vercel: project environment variables). */
+// Imported at runtime by URL, so Vite does not bundle the server code into its config.
+const importServer = (file: string) => import(/* @vite-ignore */ pathToFileURL(join(__dirname, "server", file)).href);
+
 function loadAnchorKeys() {
   const path = join(__dirname, ".secrets/anchor.secret.json");
   if (!existsSync(path)) return;
@@ -25,10 +29,11 @@ const ISOLATION = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-E
  * - `/bb/*`: bb.js's browser build served intact. It spawns its wasm workers from paths relative
  *   to its own URL, which break once a bundler chunks it, so the app loads it as native ESM.
  * - `virtual:payslip-testnet`: the public deployment (contract ids, accounts, payroll tx hashes)
- *   and, in dev only or when PAYSLIP_DEMO_KEYS=1, the demo employees' confidential keys (`sk`)
- *   for the employee screen. The employer's keys (account secret, `sk`, audit key), which let the
- *   globe sign real payrolls, are embedded in dev only. All are throwaway testnet keys; the
- *   verifier page needs none.
+ *   and, in dev or when PAYSLIP_DEMO_KEYS=1, the demo employees' confidential READ keys (`sk`) for
+ *   the employee screen: they decrypt and prove, but move no funds. No signing key ever reaches the
+ *   browser: payrolls and cash-outs are signed server-side (server/testnet.js, api/*).
+ * - In dev, the same server routes as on Vercel: /api/testnet, /api/payroll, /api/cashout and the
+ *   anchor (/.well-known/stellar.toml, /auth, /sep24/*), with keys read from .secrets/.
  */
 function payslipTestnet(): Plugin {
   const id = "virtual:payslip-testnet";
@@ -47,14 +52,9 @@ function payslipTestnet(): Plugin {
       const deployment = existsSync(DEPLOYMENT) ? JSON.parse(readFileSync(DEPLOYMENT, "utf8")) : null;
       const secrets = embedKeys && existsSync(SECRETS) ? JSON.parse(readFileSync(SECRETS, "utf8")) : null;
       const demoKeys = secrets ? Object.fromEntries(Object.entries(secrets.employees).map(([k, v]) => [k, (v as { sk: string }).sk])) : {};
-      const employerKeys = secrets && serving ? secrets.employer : null;
-      // Employees' Stellar account secrets sign the cash-out (SEP-10, payment): dev server only.
-      const demoAccounts = secrets && serving ? Object.fromEntries(Object.entries(secrets.employees).map(([k, v]) => [k, (v as { secret: string }).secret])) : {};
       return [
         `export const deployment = ${JSON.stringify(deployment)};`,
         `export const demoKeys = ${JSON.stringify(demoKeys)};`,
-        `export const employerKeys = ${JSON.stringify(employerKeys)};`,
-        `export const demoAccounts = ${JSON.stringify(demoAccounts)};`,
       ].join("\n");
     },
     configureServer(server) {
@@ -71,7 +71,7 @@ function payslipTestnet(): Plugin {
         const url = new URL(req.url ?? "/", "http://localhost");
         if (!/^\/(\.well-known\/stellar\.toml|auth|sep24\/)/.test(url.pathname)) return next();
         loadAnchorKeys();
-        const { handle, CORS } = await import("./server/anchor-core.js");
+        const { handle, CORS } = await importServer("anchor-core.js");
         const chunks: Buffer[] = [];
         for await (const c of req) chunks.push(c as Buffer);
         const raw = Buffer.concat(chunks).toString();
@@ -84,6 +84,32 @@ function payslipTestnet(): Plugin {
         }).catch((e: Error) => ({ status: 500, type: "application/json", body: JSON.stringify({ error: e.message }) }));
         res.writeHead(out.status, { ...CORS, ...ISOLATION, "Content-Type": out.type });
         res.end(out.body);
+      });
+      // Server-side testnet actions, as api/testnet.js, api/payroll.js and api/cashout.js on Vercel.
+      server.middlewares.use(async (req, res, next) => {
+        const path = (req.url ?? "").split("?")[0];
+        if (!["/api/testnet", "/api/payroll", "/api/cashout"].includes(path)) return next();
+        loadAnchorKeys();
+        if (existsSync(SECRETS)) process.env.PAYSLIP_TESTNET_KEYS ??= readFileSync(SECRETS, "utf8");
+        const t = await importServer("testnet.js");
+        const chunks: Buffer[] = [];
+        for await (const c of req) chunks.push(c as Buffer);
+        const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString() || "{}") : {};
+        const send = (status: number, value: unknown) => {
+          res.writeHead(status, { ...ISOLATION, "Content-Type": "application/json" });
+          res.end(JSON.stringify(value));
+        };
+        if (path === "/api/testnet") return send(200, t.capabilities());
+        if (path === "/api/payroll") {
+          res.writeHead(200, { ...ISOLATION, "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" });
+          const emit = (line: unknown) => res.write(JSON.stringify(line) + "\n");
+          await t.runPayroll(emit).catch((e: { status?: number; message: string }) => emit({ type: "error", status: e.status ?? 500, message: e.message }));
+          return res.end();
+        }
+        const action = { start: t.cashoutStart, status: t.cashoutStatus, settle: t.cashoutSettle }[body.action as string];
+        if (!action) return send(400, { error: "unknown action" });
+        try { send(200, await action(`http://${req.headers.host}`, body)); }
+        catch (e) { send((e as { status?: number }).status ?? 500, { error: (e as Error).message }); }
       });
     },
     generateBundle() {
