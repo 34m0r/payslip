@@ -1,5 +1,7 @@
-// Vercel function: every route of the anchor is rewritten here (anchor/vercel.json).
-import { CORS, handle } from "../lib/core.js";
+// Vercel function serving Payslip's testnet anchor on the app's own domain:
+// /.well-known/stellar.toml, /auth and /sep24/* are rewritten here (vercel.json).
+// Needs ANCHOR_SIGNING_SECRET, ANCHOR_DISTRIBUTION_SECRET and ANCHOR_JWT_SECRET in the environment.
+import { CORS, handle } from "../server/anchor-core.js";
 
 export default async function handler(req, res) {
   const { __path = "", ...query } = req.query;

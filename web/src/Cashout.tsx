@@ -16,8 +16,9 @@ import { buildAnchorPaymentTx, discover, getTx, pollUntil, sep10, startWithdraw 
 import { NETWORK_PASSPHRASE, chainClient, demoAccounts, demoKeys, deployment, txLink, usdcOf } from "./testnet/env";
 import { usdc } from "./data";
 
-/** Payslip's testnet anchor (scripts/anchor/server.mjs): no withdrawal cap, bank payout simulated. */
-const ANCHOR_DOMAIN = "localhost:8790";
+/** Payslip's testnet anchor, served by the app itself (api/anchor.js; the dev server in dev):
+ *  no withdrawal cap, bank payout simulated. */
+const ANCHOR_DOMAIN = location.host;
 const HORIZON = new Horizon.Server("https://horizon-testnet.stellar.org");
 const USDC_ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
 const USDC = new Asset("USDC", USDC_ISSUER);
@@ -91,7 +92,7 @@ export function Cashout({ employeeId, onDone }: { employeeId: string; onDone?: (
       const account = kp.publicKey();
       setStep("auth");
       const anchor = await discover(ANCHOR_DOMAIN).catch(() => {
-        throw new Error("L'anchor testnet ne répond pas sur localhost:8790. Lancez-le : npm run anchor");
+        throw new Error(`L'anchor testnet ne répond pas sur ${ANCHOR_DOMAIN} (clés de l'anchor absentes ?)`);
       });
       const token = await sep10(anchor, account, kp);
 

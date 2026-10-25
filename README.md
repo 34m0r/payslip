@@ -69,13 +69,18 @@ confirms the amount there does the browser make the confidential `withdraw` of e
 USDC (a proof verified on-chain), pay the anchor with its memo, and follow the withdrawal to `completed`. A
 cash-out resumes after a reload and never pays the anchor twice: the payment's hash is recorded before it is sent.
 
-The anchor is Payslip's own testnet anchor, `scripts/anchor/server.mjs` (SEP-1, SEP-10, SEP-24 withdraw for
-testnet USDC). The SDF test anchor caps withdrawals at 10 USDC; ours has no cap beyond the employee's balance, and
-its **bank payout is simulated**. The client (`web/src/anchor/anchor.ts`) works with any SEP-24 anchor.
+The anchor is Payslip's own testnet anchor, served by the app on its own domain: `/.well-known/stellar.toml`,
+`/auth` (SEP-10) and `/sep24/*` (SEP-24 withdraw for testnet USDC), by `api/anchor.js` on Vercel and by the dev
+server locally (`server/anchor-core.js`, one handler for both). It keeps no state of its own: the confirmed amount
+is a `manageData` entry on the anchor's account, the memo is derived from the withdrawal id, and the status is read
+from Horizon on each request. The SDF test anchor caps withdrawals at 10 USDC; ours has no cap beyond the employee's
+balance, and its **bank payout is simulated**. The client (`web/src/anchor/anchor.ts`) works with any SEP-24 anchor.
+
+On Vercel the anchor needs three environment variables: `ANCHOR_SIGNING_SECRET`, `ANCHOR_DISTRIBUTION_SECRET` and
+`ANCHOR_JWT_SECRET` (testnet keys, created in `.secrets/anchor.secret.json`).
 
 ```bash
-npm run anchor                                  # Payslip's testnet anchor on http://localhost:8790
-node scripts/testnet/cashout.mjs e03 1500       # the same cash-out from Node (ANCHOR_DOMAIN=… for another anchor)
+node scripts/testnet/cashout.mjs e03 1500       # the same cash-out from Node, through the dev server's anchor
 ```
 
 ## D-income: circuit and protocol
@@ -114,7 +119,7 @@ node scripts/income-artifacts.mjs               # pin the compiled circuit + VK 
 
 npm run testnet:deploy                          # deploy the suite over testnet USDC, onboard 4 accounts (resumable)
 npm run testnet:payroll -- "Paie 1"             # one real payroll: deposit, merge, 3 confidential transfers, audit
-npm run anchor & node scripts/testnet/cashout.mjs e03 1500   # cash-out through Payslip's testnet anchor
+node scripts/testnet/cashout.mjs e03 1500       # cash-out through Payslip's testnet anchor (needs npm run dev)
 node scripts/testnet/fund.mjs                   # top up the employer's USDC (friendbot XLM → testnet DEX)
 node scripts/testnet/income.ts e03 3000         # D-income end to end on testnet, plus the rejection cases
 ```

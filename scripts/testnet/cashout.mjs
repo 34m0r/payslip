@@ -1,6 +1,7 @@
 // An employee cashes out part of their salary to a bank account through a SEP-24 anchor:
-// by default Payslip's testnet anchor (scripts/anchor/server.mjs, no withdrawal cap, simulated
-// bank payout); ANCHOR_DOMAIN=testanchor.stellar.org uses the SDF test anchor (1–10 USDC).
+// by default Payslip's testnet anchor, served by the app's dev server (`npm run dev`; on Vercel by
+// api/anchor.js): no withdrawal cap, simulated bank payout. ANCHOR_DOMAIN=<host> targets another
+// anchor, e.g. the deployed app or testanchor.stellar.org (SDF test anchor, 1–10 USDC).
 //   1. merge received salaries into the spendable balance (if any are pending);
 //   2. confidential `withdraw` (UltraHonk proof, verified on-chain) to their own public USDC:
 //      the withdrawn amount becomes PUBLIC at this step;
@@ -10,7 +11,7 @@
 // Resumable: each finished step is recorded in deployments/testnet.json (`cashouts`). A rerun
 // continues the last unfinished cash-out of that employee and never pays the anchor twice.
 //
-//   node scripts/anchor/server.mjs &                                  (once)
+//   npm run dev &                                                     (serves the anchor too)
 //   node scripts/testnet/cashout.mjs [employeeId] [amount USDC]     e.g. e03 1500
 import { Keypair, Operation } from "@stellar/stellar-sdk";
 import {
@@ -43,7 +44,7 @@ import {
   usdcBalance,
 } from "./lib.mjs";
 
-const ANCHOR_DOMAIN = process.env.ANCHOR_DOMAIN ?? "localhost:8790";
+const ANCHOR_DOMAIN = process.env.ANCHOR_DOMAIN ?? "localhost:5174";
 const [id = "e03", amountArg = "5"] = process.argv.slice(2);
 const d = loadDeployment();
 const secrets = loadSecrets();

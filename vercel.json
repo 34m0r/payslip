@@ -10,5 +10,10 @@
       ]
     }
   ],
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/.well-known/stellar.toml", "destination": "/api/anchor?__path=.well-known/stellar.toml" },
+    { "source": "/auth", "destination": "/api/anchor?__path=auth" },
+    { "source": "/sep24/:path*", "destination": "/api/anchor?__path=sep24/:path*" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }

@@ -7,6 +7,16 @@ const BB_DIR = join(__dirname, "node_modules/@aztec/bb.js/dest/browser");
 const DEPLOYMENT = join(__dirname, "deployments/testnet.json");
 const SECRETS = join(__dirname, ".secrets/testnet.secret.json");
 
+/** The anchor's testnet keys, from .secrets/ in dev (on Vercel: project environment variables). */
+function loadAnchorKeys() {
+  const path = join(__dirname, ".secrets/anchor.secret.json");
+  if (!existsSync(path)) return;
+  const k = JSON.parse(readFileSync(path, "utf8"));
+  process.env.ANCHOR_SIGNING_SECRET ??= k.signing;
+  process.env.ANCHOR_DISTRIBUTION_SECRET ??= k.distribution;
+  process.env.ANCHOR_JWT_SECRET ??= k.jwtSecret;
+}
+
 // Cross-origin isolation: required for multithreaded bb.js proving in the browser.
 const ISOLATION = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" };
 
@@ -55,6 +65,25 @@ function payslipTestnet(): Plugin {
         // bb.js's workers are documents of their own: they need the isolation headers too.
         for (const [k, v] of Object.entries(ISOLATION)) res.setHeader(k, v);
         res.end(readFileSync(file));
+      });
+      // Payslip's testnet anchor on the app's own origin, as api/anchor.js serves it on Vercel.
+      server.middlewares.use(async (req, res, next) => {
+        const url = new URL(req.url ?? "/", "http://localhost");
+        if (!/^\/(\.well-known\/stellar\.toml|auth|sep24\/)/.test(url.pathname)) return next();
+        loadAnchorKeys();
+        const { handle, CORS } = await import("./server/anchor-core.js");
+        const chunks: Buffer[] = [];
+        for await (const c of req) chunks.push(c as Buffer);
+        const raw = Buffer.concat(chunks).toString();
+        const type = req.headers["content-type"] ?? "";
+        const body = type.includes("application/json") ? JSON.parse(raw || "{}")
+          : type.includes("application/x-www-form-urlencoded") ? Object.fromEntries(new URLSearchParams(raw)) : {};
+        const out = await handle({
+          method: req.method, path: url.pathname, query: Object.fromEntries(url.searchParams),
+          headers: req.headers, body, origin: `http://${req.headers.host}`,
+        }).catch((e: Error) => ({ status: 500, type: "application/json", body: JSON.stringify({ error: e.message }) }));
+        res.writeHead(out.status, { ...CORS, ...ISOLATION, "Content-Type": out.type });
+        res.end(out.body);
       });
     },
     generateBundle() {
