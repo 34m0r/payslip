@@ -50,7 +50,10 @@ function payslipTestnet(): Plugin {
       if (s !== "\0" + id) return;
       this.addWatchFile(DEPLOYMENT);
       const deployment = existsSync(DEPLOYMENT) ? JSON.parse(readFileSync(DEPLOYMENT, "utf8")) : null;
-      const secrets = embedKeys && existsSync(SECRETS) ? JSON.parse(readFileSync(SECRETS, "utf8")) : null;
+      // Keys from .secrets/ locally, from the PAYSLIP_TESTNET_KEYS variable on Vercel. Only the
+      // employees' read keys (`sk`) are taken from them.
+      const raw = existsSync(SECRETS) ? readFileSync(SECRETS, "utf8") : process.env.PAYSLIP_TESTNET_KEYS;
+      const secrets = embedKeys && raw ? JSON.parse(raw) : null;
       const demoKeys = secrets ? Object.fromEntries(Object.entries(secrets.employees).map(([k, v]) => [k, (v as { sk: string }).sk])) : {};
       return [
         `export const deployment = ${JSON.stringify(deployment)};`,
