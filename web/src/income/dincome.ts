@@ -137,7 +137,8 @@ export async function proveIncome(p: {
   const inputs = { sk: toHex32(keys.sk), v: salaries.map(toHex32), ...publicInputs({ addrF: keys.addrF, pvk, events, request }) };
 
   p.onStage?.("prove");
-  const result = await prover.prove(inputs);
+  // noir_js takes arrays for array parameters; the SDK's NoirInputs type only models scalars.
+  const result = await prover.prove(inputs as unknown as Parameters<CircuitProver["prove"]>[0]);
 
   p.onStage?.("self-check");
   if (!(await prover.verify(result))) throw new Error("the proof does not verify locally");
