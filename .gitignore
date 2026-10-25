@@ -6,3 +6,5 @@ circuits/*/target
 *.secret.json
 .stellar/
 .secrets/
+.vercel
+.env*
