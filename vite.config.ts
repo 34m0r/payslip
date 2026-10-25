@@ -91,6 +91,21 @@ function payslipTestnet(): Plugin {
       // Server-side testnet actions, as api/testnet.js, api/payroll.js and api/cashout.js on Vercel.
       server.middlewares.use(async (req, res, next) => {
         const path = (req.url ?? "").split("?")[0];
+        if (path === "/api/attestation") {
+          const a = await importServer("attestations.js");
+          const chunks: Buffer[] = [];
+          for await (const c of req) chunks.push(c as Buffer);
+          try {
+            const out = req.method === "POST"
+              ? { id: await a.saveAttestation(JSON.parse(Buffer.concat(chunks).toString() || "null")) }
+              : await a.loadAttestation(new URL(req.url ?? "", "http://x").searchParams.get("id"));
+            res.writeHead(200, { ...ISOLATION, "Content-Type": "application/json" });
+            return res.end(JSON.stringify(out));
+          } catch (e) {
+            res.writeHead((e as { status?: number }).status ?? 500, { ...ISOLATION, "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ error: (e as Error).message }));
+          }
+        }
         if (!["/api/testnet", "/api/payroll", "/api/cashout"].includes(path)) return next();
         loadAnchorKeys();
         if (existsSync(SECRETS)) process.env.PAYSLIP_TESTNET_KEYS ??= readFileSync(SECRETS, "utf8");

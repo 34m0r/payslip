@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { N, IncomeVerifyError, decodeLink, encodeLink, newIncomeRequest, verifyIncome, type IncomeBundle, type IncomeRequest, type VerifiedIncome } from "./income/dincome";
 import { chainClient, deployment, incomeProver, pinnedVk, txLink, unitsOf, usdcOf } from "./testnet/env";
 import { usdc } from "./data";
+import { fetchAttestation, formatDate, ledgerTime, qrDataUrl } from "./attestation";
+import { LedgerDate } from "./LedgerDate";
 import { Topbar } from "./Topbar";
 
 // The verifier's own request records. Per-browser by nature: a request is what binds an
@@ -14,10 +16,13 @@ function saveRequest(r: IncomeRequest) {
   try { localStorage.setItem(KEY, JSON.stringify([...loadRequests(), r].slice(-20))); } catch { /* private mode: the link still works */ }
 }
 
-function readBundle(): IncomeBundle | null {
+/** An attestation in the URL fragment: a short id (#a=…, stored server-side) or the full bundle (#att=…). */
+function readSource(): { id: string } | { bundle: IncomeBundle } | null {
+  const short = location.hash.match(/(?:^#|&)a=([\w-]+)/);
+  if (short) return { id: short[1] };
   const m = location.hash.match(/att=([\w-]+)/);
   if (!m) return null;
-  try { return decodeLink<IncomeBundle>(m[1]); } catch { return null; }
+  try { return { bundle: decodeLink<IncomeBundle>(m[1]) }; } catch { return null; }
 }
 
 type Result =
@@ -26,13 +31,23 @@ type Result =
   | { kind: "error"; message: string; stage?: string };
 
 export function Verifier() {
-  const [bundle] = useState(readBundle);
+  const [source] = useState(readSource);
   return (
     <div className="page">
       <Topbar current="verifier" />
-      <main className="sheet">{bundle ? <Check bundle={bundle} /> : <NewRequest />}</main>
+      <main className="sheet">
+        {!source ? <NewRequest /> : "bundle" in source ? <Check bundle={source.bundle} /> : <Fetch id={source.id} />}
+      </main>
     </div>
   );
+}
+
+function Fetch({ id }: { id: string }) {
+  const [bundle, setBundle] = useState<IncomeBundle | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { fetchAttestation(id).then(setBundle).catch((e) => setError(e.message)); }, [id]);
+  if (error) return <section className="verdict verdict--bad"><p className="verdict__title">✕ Attestation refusée</p><p>{error}</p></section>;
+  return bundle ? <Check bundle={bundle} shortLink={location.href} /> : <p className="muted">Chargement de l'attestation…</p>;
 }
 
 function NewRequest() {
@@ -78,8 +93,18 @@ function NewRequest() {
   );
 }
 
-function Check({ bundle }: { bundle: IncomeBundle }) {
+function Check({ bundle, shortLink }: { bundle: IncomeBundle; shortLink?: string }) {
   const [result, setResult] = useState<Result>({ kind: "checking", steps: [] });
+  const [qr, setQr] = useState<string | null>(null);
+  const [period, setPeriod] = useState<string | null>(null);
+  const [checkedAt] = useState(() => new Date());
+  useEffect(() => { if (shortLink) qrDataUrl(shortLink).then(setQr); }, [shortLink]);
+  useEffect(() => {
+    if (result.kind !== "ok") return;
+    const evs = result.verified.events;
+    Promise.all([ledgerTime(evs[0].ledger), ledgerTime(evs[evs.length - 1].ledger)])
+      .then(([a, b]) => a && b && setPeriod(`du ${formatDate(a)} au ${formatDate(b)}`));
+  }, [result]);
 
   useEffect(() => {
     let live = true;
@@ -134,13 +159,28 @@ function Check({ bundle }: { bundle: IncomeBundle }) {
             <ul className="ledger">
               {result.verified.events.map((ev) => (
                 <li key={ev.cursor}>
-                  <span>Ledger {ev.ledger}</span>
+                  <LedgerDate ledger={ev.ledger} />
                   <span className="amount amount--cipher">montant chiffré</span>
                   <a className="hash" href={txLink(ev.txHash)} target="_blank" rel="noreferrer">{ev.txHash.slice(0, 8)}…</a>
                 </li>
               ))}
             </ul>
           </section>
+          <section className="certificate" aria-labelledby="h-cert">
+            <div className="certificate__body">
+              <p className="eyebrow">Payslip · attestation vérifiable</p>
+              <h2 id="h-cert">Attestation de revenus</h2>
+              <dl>
+                <div><dt>Revenus prouvés</dt><dd>au moins {monthly}/mois sur {N} mois</dd></div>
+                <div><dt>Employeur</dt><dd>{deployment?.employer.name ?? "—"}</dd></div>
+                {period && <div><dt>Période</dt><dd>{period}</dd></div>}
+                <div><dt>Vérifiée le</dt><dd>{formatDate(checkedAt)}, contre Stellar testnet</dd></div>
+              </dl>
+              <p className="muted small">Aucun montant n'est révélé. {qr ? "Scannez le QR code pour revérifier la preuve sur la blockchain." : ""}</p>
+            </div>
+            {qr && <img className="certificate__qr" src={qr} alt="QR code pour revérifier l'attestation" width={160} height={160} />}
+          </section>
+          <button className="btn no-print" onClick={() => window.print()}>Imprimer l'attestation</button>
         </>
       )}
     </>

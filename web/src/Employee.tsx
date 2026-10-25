@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { addressToField, deriveKeys, type TransferEvent } from "stellar-confidential-token-sdk";
 import { N, decodeLink, decryptSalary, encodeLink, findSalaryEvents, proveIncome, type IncomeRequest, type ProveStage } from "./income/dincome";
-import { chainClient, demoKeys, deployment, incomeProver, periodOf, txLink, usdcOf } from "./testnet/env";
+import { chainClient, demoKeys, deployment, incomeProver, txLink, usdcOf } from "./testnet/env";
+import { qrDataUrl, shareAttestation } from "./attestation";
+import { LedgerDate } from "./LedgerDate";
 import { usdc } from "./data";
 import { Topbar } from "./Topbar";
 import { Cashout } from "./Cashout";
@@ -14,7 +16,7 @@ const STAGES: { id: ProveStage; label: string }[] = [
 ];
 
 type Salary = { ev: TransferEvent; amount: bigint };
-type Phase = { kind: "idle" } | { kind: "proving"; stage: ProveStage; since: number } | { kind: "done"; link: string; ms: number } | { kind: "error"; message: string };
+type Phase = { kind: "idle" } | { kind: "proving"; stage: ProveStage; since: number } | { kind: "done"; link: string; qr: string | null; ms: number } | { kind: "error"; message: string };
 
 function readRequest(): IncomeRequest | null {
   const m = location.hash.match(/req=([\w-]+)/);
@@ -69,7 +71,11 @@ export function Employee() {
         keys, holder: employee.address, events: salaries.map((s) => s.ev), request, prover: incomeProver(),
         onStage: (stage) => setPhase({ kind: "proving", stage, since: start }),
       });
-      setPhase({ kind: "done", link: `${location.origin}/verifier#att=${encodeLink(bundle)}`, ms: performance.now() - start });
+      const ms = performance.now() - start;
+      // A short link (and its QR code) when the server can store the attestation; else the full link.
+      const short = await shareAttestation(bundle);
+      const link = short ?? `${location.origin}/verifier#att=${encodeLink(bundle)}`;
+      setPhase({ kind: "done", link, qr: short ? await qrDataUrl(short) : null, ms });
     } catch (e) {
       setPhase({ kind: "error", message: String((e as Error)?.message ?? e) });
     }
@@ -102,7 +108,7 @@ export function Employee() {
             <ul className="ledger">
               {salaries.map(({ ev, amount }) => (
                 <li key={ev.cursor}>
-                  <span>{periodOf(ev.txHash) ?? `Ledger ${ev.ledger}`}</span>
+                  <LedgerDate ledger={ev.ledger} />
                   <span className="amount">{usdc(usdcOf(amount))}</span>
                   <a className="hash" href={txLink(ev.txHash)} target="_blank" rel="noreferrer">{ev.txHash.slice(0, 8)}…</a>
                 </li>
@@ -140,12 +146,17 @@ export function Employee() {
               {phase.kind === "done" && (
                 <div className="share">
                   <Stages current={null} />
-                  <p>Preuve générée dans votre navigateur en {(phase.ms / 1000).toFixed(1)} s. Envoyez ce lien à votre vérificateur :</p>
-                  <div className="share__row">
-                    <input readOnly value={phase.link} aria-label="Lien de l'attestation" onFocus={(e) => e.currentTarget.select()} />
-                    <button className="btn" onClick={() => navigator.clipboard?.writeText(phase.link).then(() => setCopied(true))}>{copied ? "Copié" : "Copier"}</button>
+                  <p>Preuve générée dans votre navigateur en {(phase.ms / 1000).toFixed(1)} s. Envoyez ce lien à votre vérificateur, ou montrez-lui le QR code :</p>
+                  <div className="share__qr">
+                    {phase.qr && <img src={phase.qr} alt="QR code de l'attestation" width={180} height={180} />}
+                    <div className="share">
+                      <div className="share__row">
+                        <input readOnly value={phase.link} aria-label="Lien de l'attestation" onFocus={(e) => e.currentTarget.select()} />
+                        <button className="btn" onClick={() => navigator.clipboard?.writeText(phase.link).then(() => setCopied(true))}>{copied ? "Copié" : "Copier"}</button>
+                      </div>
+                      <a className="muted small" href={phase.link} target="_blank" rel="noreferrer">Ouvrir l'attestation (vérifiable et imprimable) ↗</a>
+                    </div>
                   </div>
-                  <a className="muted small" href={phase.link} target="_blank" rel="noreferrer">Ouvrir comme le vérificateur ↗</a>
                 </div>
               )}
             </>
