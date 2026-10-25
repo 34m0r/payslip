@@ -1,0 +1,126 @@
+{
+  "network": "testnet",
+  "steps": {
+    "accounts": {
+      "employer": "GAPAKH3VJTAMXZRZ66MHOZGZSTYPNDTIWEZI2EX6TC5YQARQMLIS76MA",
+      "employees": {
+        "e03": "GDA72DEFDPXKCDBEIVWZ7ZTVLLU23K3OS653RWOD2HAAHMEC7U2EJ3YD",
+        "e04": "GC7PVZMKLRKQPXVEJXCS4EHFGP3URERPMGT4JALNBCJDNYPCLTK5MUCS",
+        "e07": "GC7AGEQ56HNSKGEDT72QJJGJL23VBK42TOJRSM3VVLXJ7SGAYRS6U3NP"
+      }
+    },
+    "verifier": "CA2QVJTD3SC5JEKK7EFGP4RTX7AFL77B2TQPY44HF3QUZEXSWKHJ2X2H",
+    "auditor": "CCNRBMHND4ZLECGR4ZXBFV2JAYRGI5XM7I4GFSWO4X2SU7DJIM7RPR4S",
+    "factory": "CBGBFZ4XRV2YB4UQXJYZRM4INDSZGZKW2V3FJEDVKPRPNBUSAEHEC6VF",
+    "fromLedger": 5384839,
+    "token": {
+      "policy": "CBOQKD5VAL3HGYGHNMITQVSX6EBNU5R2D3FAOYCWTOZS7B4Q6EYEHWU7",
+      "token": "CBUHR3NBYP4NONOFGQ5BYIRSS7GWRIDGWNO4DYK32GJPWAN6TK4RMT2I"
+    },
+    "vks": {
+      "register": "b8749aa422e0246cdad60c9dff2e33a68455938082c458d88fdada05ce8c504b",
+      "withdraw": "7f63e0ebe0e193ae9fab2474ba12efd869ed5a4e5582edc29638280160715ed3",
+      "transfer": "ab4f02f790a9b50b46c2555ec8b2cfb29c65b767ee23289f64a2ccea039f4e23",
+      "spender_transfer": "2ce986c994a552850e40fa39ee5d2966e54bb436ce709e40bd0804147f7a26fa",
+      "set_spender": "1f85ef65c9c1b5a32499bdb396a4a9ce803034652698cd8514d72c0f4aaec7bf",
+      "clawback": "a03de2d7bf7729443edd3830ee7ae5e4eda09e472cc8675ac87323467bdadfe8"
+    },
+    "auditorKey": {
+      "auditorId": 0,
+      "tx": "a9614a012d3d2a876e0d2585b73aaff73b0a075e24f802a84764fee93ac393c6"
+    },
+    "allowlist": {
+      "employer": "c986f7cf10b01c84c9372e30f0139de9a684da6dfb160ac4b7802da86b5c6073",
+      "e03": "465df2f242a8f7ce3f51f92cbe8c1e499c31e11472d4a82c8a194eae1dd1116f",
+      "e04": "fe75d6b503131827034c818a7a16d028edf770e13def9a791cea560e5f7eecb1",
+      "e07": "3fb7fa94f03dbf6279df1b53a65b3390113d89da2c3bcaef33eb5ae886aa3b7e"
+    },
+    "register": {
+      "employer": "6afe068c7057559f38490b5ebcdf01e94396eaa24ca66c56d1c449a292e60bba",
+      "e03": "b9f8ef4eeb9dc63e9058b6f85caccb8600611df3c540b6e3c15dc3b95b757eaa",
+      "e04": "e06da22bbc0931a80943cfa1249a0ad2a4f827c09df00f994a301e6bf6fe3173",
+      "e07": "336884d912aa61973ad4d4f7f9cf6d02c5d26324d78e61f78212676e7cbfd846"
+    }
+  },
+  "employer": {
+    "name": "Atlântica Labs",
+    "address": "GAPAKH3VJTAMXZRZ66MHOZGZSTYPNDTIWEZI2EX6TC5YQARQMLIS76MA"
+  },
+  "employees": [
+    {
+      "id": "e03",
+      "name": "Clara Duarte",
+      "city": "Lisbonne",
+      "salary": 3300,
+      "address": "GDA72DEFDPXKCDBEIVWZ7ZTVLLU23K3OS653RWOD2HAAHMEC7U2EJ3YD"
+    },
+    {
+      "id": "e04",
+      "name": "Rafael Oliveira",
+      "city": "São Paulo",
+      "salary": 3900,
+      "address": "GC7PVZMKLRKQPXVEJXCS4EHFGP3URERPMGT4JALNBCJDNYPCLTK5MUCS"
+    },
+    {
+      "id": "e07",
+      "name": "Adaeze Okafor",
+      "city": "Lagos",
+      "salary": 3700,
+      "address": "GC7AGEQ56HNSKGEDT72QJJGJL23VBK42TOJRSM3VVLXJ7SGAYRS6U3NP"
+    }
+  ],
+  "wasm": {
+    "verifier": "f6ca9bcf48d84f421bb487f0b521e3b091c608a1077662423ec951eff239f628",
+    "auditor": "b8b247677b7d8148a4f82fabebf787eb0a43f995373adb6cc6e9d3564952c137",
+    "factory": "5ee181cea0f600088353534acf915d31d4f9abfc1ef3be3d0db197ef7d0500aa",
+    "compliant_token": "c8464491d0a9e1d3f0b26ec2d1a7d1fa8aae4601cacad8b732c935711a136cd3",
+    "allowlist_policy": "d6e83e94389ac10ea5efb55845448b3430e4eb28defc684b707ca0578d38c0e4"
+  },
+  "contracts": {
+    "verifier": "CA2QVJTD3SC5JEKK7EFGP4RTX7AFL77B2TQPY44HF3QUZEXSWKHJ2X2H",
+    "auditor": "CCNRBMHND4ZLECGR4ZXBFV2JAYRGI5XM7I4GFSWO4X2SU7DJIM7RPR4S",
+    "factory": "CBGBFZ4XRV2YB4UQXJYZRM4INDSZGZKW2V3FJEDVKPRPNBUSAEHEC6VF",
+    "policy": "CBOQKD5VAL3HGYGHNMITQVSX6EBNU5R2D3FAOYCWTOZS7B4Q6EYEHWU7",
+    "token": "CBUHR3NBYP4NONOFGQ5BYIRSS7GWRIDGWNO4DYK32GJPWAN6TK4RMT2I",
+    "underlying": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA"
+  },
+  "fromLedger": 5384839,
+  "payrolls": [
+    {
+      "period": "Paie 1",
+      "at": "2026-10-25T17:06:09.235Z",
+      "total": 10900,
+      "deposit": "03851414fc0d2ea68eafab8f04523ff3ab39d720621aca89e884d50d793f72ac",
+      "merge": "3d4f1964091f5675ff2cf09afcb26e7a370203932f2fd5676e23ef884d98e92f",
+      "transfers": [
+        {
+          "employeeId": "e03",
+          "to": "GDA72DEFDPXKCDBEIVWZ7ZTVLLU23K3OS653RWOD2HAAHMEC7U2EJ3YD",
+          "tx": "c73e5b253d3607fd9f26c7dbcee32b45aba39f0aa6f6df2432dbdc8e0596edbf",
+          "provingMs": 2049,
+          "ledger": 5384872,
+          "eventId": "5384872-c73e5b253d3607fd9f26c7dbcee32b45aba39f0aa6f6df2432dbdc8e0596edbf-0-0",
+          "vTilde": "0x2465609dd09db860b10a3b65f8194364f26b3e0b40828cecab8c5b469b2fbd2"
+        },
+        {
+          "employeeId": "e04",
+          "to": "GC7PVZMKLRKQPXVEJXCS4EHFGP3URERPMGT4JALNBCJDNYPCLTK5MUCS",
+          "tx": "1ea93231ea1cc1b24ee09fe514661775afe8fa0fdd3056f4139437f436a0f60b",
+          "provingMs": 1587,
+          "ledger": 5384874,
+          "eventId": "5384874-1ea93231ea1cc1b24ee09fe514661775afe8fa0fdd3056f4139437f436a0f60b-0-0",
+          "vTilde": "0xcb231b53ec5226014f910c9dcc58825ccbf3c814514f40989d62d1f5e89bb3e"
+        },
+        {
+          "employeeId": "e07",
+          "to": "GC7AGEQ56HNSKGEDT72QJJGJL23VBK42TOJRSM3VVLXJ7SGAYRS6U3NP",
+          "tx": "787541ec67f95d787de195ada485f950bcc7fca7844df5754e44f0a15e4677d0",
+          "provingMs": 1564,
+          "ledger": 5384876,
+          "eventId": "5384876-787541ec67f95d787de195ada485f950bcc7fca7844df5754e44f0a15e4677d0-0-0",
+          "vTilde": "0x29604f699911f2ad3562b7abbb91c2e52f73c64ac0ac70689b106bc1a2fdad58"
+        }
+      ]
+    }
+  ]
+}

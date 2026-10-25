@@ -5,3 +5,4 @@ circuits/*/target
 .env.*
 *.secret.json
 .stellar/
+.secrets/

@@ -7,12 +7,16 @@
     "dev": "node scripts/dev.mjs",
     "dev:web": "vite",
     "build": "vite build",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "testnet:deploy": "node scripts/testnet/deploy.mjs",
+    "testnet:payroll": "node scripts/testnet/payroll.mjs"
   },
   "dependencies": {
+    "@stellar/stellar-sdk": "^14.6.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-globe.gl": "^2.38.0",
+    "stellar-confidential-token-sdk": "github:brozorec/stellar-confidential-token-sdk#aad17069714713bcb36fa376d0f2a87743e8e2a7",
     "three": "^0.186.1",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2"
