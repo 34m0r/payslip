@@ -18,6 +18,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-globe.gl": "^2.38.0",
+    "smol-toml": "^1.9.1",
     "stellar-confidential-token-sdk": "github:brozorec/stellar-confidential-token-sdk#aad17069714713bcb36fa376d0f2a87743e8e2a7",
     "three": "^0.186.1",
     "topojson-client": "^3.1.0",
