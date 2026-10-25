@@ -1,4 +1,6 @@
-// An employee cashes out part of their salary to a bank account through the SDF test anchor:
+// An employee cashes out part of their salary to a bank account through a SEP-24 anchor:
+// by default Payslip's testnet anchor (scripts/anchor/server.mjs, no withdrawal cap, simulated
+// bank payout); ANCHOR_DOMAIN=testanchor.stellar.org uses the SDF test anchor (1–10 USDC).
 //   1. merge received salaries into the spendable balance (if any are pending);
 //   2. confidential `withdraw` (UltraHonk proof, verified on-chain) to their own public USDC:
 //      the withdrawn amount becomes PUBLIC at this step;
@@ -8,7 +10,8 @@
 // Resumable: each finished step is recorded in deployments/testnet.json (`cashouts`). A rerun
 // continues the last unfinished cash-out of that employee and never pays the anchor twice.
 //
-//   node scripts/testnet/cashout.mjs [employeeId] [amount USDC]     e.g. e03 5  (test anchor: 1–10 USDC)
+//   node scripts/anchor/server.mjs &                                  (once)
+//   node scripts/testnet/cashout.mjs [employeeId] [amount USDC]     e.g. e03 1500
 import { Keypair, Operation } from "@stellar/stellar-sdk";
 import {
   StateEngine,
@@ -40,7 +43,7 @@ import {
   usdcBalance,
 } from "./lib.mjs";
 
-const ANCHOR_DOMAIN = "testanchor.stellar.org";
+const ANCHOR_DOMAIN = process.env.ANCHOR_DOMAIN ?? "localhost:8790";
 const [id = "e03", amountArg = "5"] = process.argv.slice(2);
 const d = loadDeployment();
 const secrets = loadSecrets();
@@ -62,6 +65,12 @@ if (!c) {
   console.log(`reprise du retrait commencé le ${c.startedAt} (${c.amount} USDC, étape « ${c.status} »)`);
 }
 const save = (patch) => { Object.assign(c, patch); saveDeployment(d); };
+// A cash-out left open at another anchor, never paid: keep its withdraw (the USDC is on the
+// employee's public account) and reopen the withdrawal at this anchor.
+if (c.anchorTxId && (c.anchorDomain ?? "testanchor.stellar.org") !== ANCHOR_DOMAIN && !c.paymentTx) {
+  console.log(`retrait ouvert chez ${c.anchorDomain ?? "testanchor.stellar.org"} abandonné, reprise chez ${ANCHOR_DOMAIN}`);
+  save({ abandonedAnchor: { domain: c.anchorDomain ?? "testanchor.stellar.org", id: c.anchorTxId }, anchorTxId: undefined, interactiveUrl: undefined, status: c.withdrawTx ? "withdrawn" : c.status });
+}
 const units = toUnits(Number(c.amount));
 
 // --- 1-2. Confidential balance → public USDC (the amount becomes public here) -----------------
@@ -95,13 +104,16 @@ if (!c.withdrawTx) {
 // --- 3. SEP-10 + SEP-24 interactive withdraw ---------------------------------------------------
 const anchor = await discover(ANCHOR_DOMAIN);
 const token = await sep10(anchor, ACCOUNT, kp);
-if (!c.anchorTxId) {
+// The interactive URL carries a short-lived token: an unfinished one older than 50 min is reopened.
+const stale = c.anchorTxId && !c.paymentTx && Date.now() - Date.parse(c.interactiveAt ?? 0) > 50 * 60_000
+  && (await getTx(anchor, token, c.anchorTxId)).status === "incomplete";
+if (!c.anchorTxId || stale) {
   const { url, id: anchorTxId } = await startWithdraw(anchor, token, { assetCode: "USDC", account: ACCOUNT, amount: c.amount });
-  save({ anchorTxId, interactiveUrl: url, status: "interactive" });
+  save({ anchorTxId, anchorDomain: ANCHOR_DOMAIN, interactiveUrl: url, interactiveAt: new Date().toISOString(), status: "interactive" });
 }
 let t = await getTx(anchor, token, c.anchorTxId);
 if (t.status === "incomplete") {
-  console.log(`\nOuvrez cette page et remplissez le formulaire du test anchor :\n${c.interactiveUrl}\n`);
+  console.log(`\nOuvrez cette page et remplissez le formulaire de retrait de l'anchor :\n${c.interactiveUrl}\n`);
   t = await pollUntil(anchor, token, c.anchorTxId, ["pending_user_transfer_start"], { timeoutMs: 30 * 60_000 });
 }
 
@@ -119,5 +131,5 @@ if (!c.paymentTx && t.status === "pending_user_transfer_start") {
 
 const done = await pollUntil(anchor, token, c.anchorTxId, ["completed"], { timeoutMs: 30 * 60_000 });
 save({ status: "completed", amountOut: done.amount_out, completedAt: new Date().toISOString() });
-console.log(`\n✅ retrait terminé : ${done.amount_out ?? c.amount} USDC versés sur le compte bancaire (test anchor)`);
+console.log(`\n✅ retrait terminé : ${done.amount_out ?? c.amount} USDC versés sur le compte bancaire (virement simulé, testnet)`);
 process.exit(0);

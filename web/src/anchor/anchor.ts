@@ -37,7 +37,9 @@ export interface AnchorInfo {
 }
 
 export async function discover(homeDomain: string): Promise<AnchorInfo> {
-  const res = await fetch(`https://${homeDomain}/.well-known/stellar.toml`);
+  // A local anchor (Payslip's testnet anchor in dev) serves plain http; every other one https.
+  const scheme = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(homeDomain) ? "http" : "https";
+  const res = await fetch(`${scheme}://${homeDomain}/.well-known/stellar.toml`);
   if (!res.ok) throw new Error(`stellar.toml ${res.status}`);
   const toml = parse(await res.text()) as Record<string, unknown>;
   const need = (k: string) => {
