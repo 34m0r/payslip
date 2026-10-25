@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GlobeView } from "./GlobeView";
 import { Decrypt } from "./Decrypt";
+import { Topbar } from "./Topbar";
 import { COMPANY, EMPLOYEES, HUBS, hubOf, usdc } from "./data";
 import { DemoPayrollEngine, ciphertextFor, initialTransfers, type Transfer, type TransferStatus } from "./payroll";
 
@@ -56,12 +57,7 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand__mark" aria-hidden="true" />
-          <span className="brand__name">Payslip</span>
-          <span className="brand__company">{COMPANY.name}</span>
-        </div>
+      <Topbar current="employer">
         <div className="viewswitch" role="radiogroup" aria-label="Point de vue">
           <button role="radio" aria-checked={view === "public"} onClick={() => setView("public")}>Vue publique</button>
           <button role="radio" aria-checked={view === "auditor"} onClick={() => setView("auditor")}>Vue auditeur</button>
@@ -69,7 +65,7 @@ export function App() {
         <span className="demo" title="Les virements, preuves et hashes de cet écran sont simulés. Le mode testnet utilise le SDK Confidential Token d'OpenZeppelin.">
           Démo, données simulées
         </span>
-      </header>
+      </Topbar>
 
       <main className="stage">
         <section className="stage__globe">
