@@ -1,10 +1,10 @@
 /** Browser side of the testnet deployment: chain client, bb.js loader, the pinned D-income prover. */
 import { ChainClient, proverFromArtifact, setUltraHonkBackendLoader, type CircuitProver } from "stellar-confidential-token-sdk";
-import { deployment, demoKeys } from "virtual:payslip-testnet";
+import { deployment, demoKeys, employerKeys } from "virtual:payslip-testnet";
 import artifact from "../income/disclose_income.json";
 import vkPin from "../income/disclose_income.vk.json";
 
-export { deployment, demoKeys };
+export { deployment, demoKeys, employerKeys };
 export const RPC_URL = "https://soroban-testnet.stellar.org";
 export const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
 export const EXPERT = "https://stellar.expert/explorer/testnet";

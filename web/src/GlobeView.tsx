@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import { MeshLambertMaterial } from "three";
+import { polygonToCells } from "h3-js";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import countries110 from "world-atlas/countries-110m.json";
@@ -8,7 +9,13 @@ import { EMPLOYEES, HUBS, hubOf, treasury, type Employee } from "./data";
 import { FLIGHT_MS, type Transfer } from "./payroll";
 
 const topo = countries110 as unknown as Topology<{ countries: GeometryCollection }>;
-const LAND = feature(topo, topo.objects.countries).features.filter((f) => f.id !== "010"); // drop Antarctica
+// h3 rejects a few degenerate rings of the 110m atlas (North Korea's main polygon), and globe.gl
+// would throw on them mid-render: keep only the polygons h3 can fill at the resolution we draw.
+const fillable = (rings: number[][][]) => { try { polygonToCells(rings, 3, true); return true; } catch { return false; } };
+const LAND = feature(topo, topo.objects.countries).features
+  .filter((f) => f.id !== "010") // drop Antarctica
+  .map((f) => (f.geometry.type === "MultiPolygon" ? { ...f, geometry: { ...f.geometry, coordinates: f.geometry.coordinates.filter(fillable) } } : f))
+  .filter((f) => f.geometry.type !== "Polygon" || fillable(f.geometry.coordinates));
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -63,9 +70,11 @@ const RING_SPEED = 4; // deg/s
 const RING_PERIOD_MS = 900;
 const RING_LIFE_MS = RING_PERIOD_MS + (RING_RADIUS / RING_SPEED) * 1000 + 50;
 
-export function GlobeView({ transfers, focusId, selectedId, onSelect, running }: {
-  transfers: Transfer[]; focusId: string | null; selectedId: string | null;
+export function GlobeView({ employees, transfers, focusId, selectedId, onSelect, running, openFlights = false }: {
+  employees: Employee[]; transfers: Transfer[]; focusId: string | null; selectedId: string | null;
   onSelect: (id: string) => void; running: boolean;
+  /** Flight time unknown in advance (real network): packets stream until the transfer lands. */
+  openFlights?: boolean;
 }) {
   const globe = useRef<GlobeMethods | undefined>(undefined);
   const [wrap, { w, h }] = useSize<HTMLDivElement>();
@@ -80,16 +89,16 @@ export function GlobeView({ transfers, focusId, selectedId, onSelect, running }:
   // Hub labels: built once per theme, positioned by globe.gl.
   const hubEls = useMemo(() => {
     const counts = new Map<string, number>();
-    EMPLOYEES.forEach((e) => counts.set(e.hub, (counts.get(e.hub) ?? 0) + 1));
-    return HUBS.map((hub) => {
+    employees.forEach((e) => counts.set(e.hub, (counts.get(e.hub) ?? 0) + 1));
+    return HUBS.filter((hub) => hub.isHQ || counts.has(hub.id)).map((hub) => {
       const el = document.createElement("div");
       el.className = `hub${hub.isHQ ? " hub--hq" : ""}`;
       el.innerHTML = `<span class="hub__pin"></span><span class="hub__label"><strong>${hub.city}</strong><em>${
-        hub.isHQ ? "Siège et trésorerie" : `${counts.get(hub.id)} salariés`
+        hub.isHQ ? "Siège et trésorerie" : `${counts.get(hub.id)} salarié${counts.get(hub.id)! > 1 ? "s" : ""}`
       }</em></span>`;
       return { ...hub, el };
     });
-  }, []);
+  }, [employees]);
 
   const byId = useMemo(() => new Map(transfers.map((t) => [t.employeeId, t])), [transfers]);
   const hq = treasury();
@@ -187,13 +196,14 @@ export function GlobeView({ transfers, focusId, selectedId, onSelect, running }:
       color: (d: object) => ((d as ArcDatum).live ? [rgba(theme.flow, 0.35), theme.flow] : [theme.flowFaint, rgba(theme.flow, 0.45)]),
       stroke: (d: object) => ((d as ArcDatum).live ? 1.15 : 0.5),
       // live: one packet leaves the treasury and its head lands as the flight ends (1 arc
-      // length per FLIGHT_MS); received: the established route, drawn solid.
+      // length per FLIGHT_MS), or with open flights a packet every FLIGHT_MS until it lands;
+      // received: the established route, drawn solid.
       dashLength: (d: object) => (animated(d) ? 0.42 : 1),
-      dashGap: (d: object) => (animated(d) ? 2 : 0),
+      dashGap: (d: object) => (animated(d) ? (openFlights ? 0.58 : 2) : 0),
       dashInitialGap: (d: object) => (animated(d) ? 1 : 0),
       dashAnimateTime: (d: object) => (animated(d) ? FLIGHT_MS : 0),
     };
-  }, [theme.flow, theme.flowFaint, still]);
+  }, [theme.flow, theme.flowFaint, still, openFlights]);
   const ringColor = useCallback(() => (t: number) => rgba(theme.flow, Math.max(0, 1 - t)), [theme.flow]);
 
   return (
@@ -212,7 +222,7 @@ export function GlobeView({ transfers, focusId, selectedId, onSelect, running }:
         hexPolygonMargin={0.55}
         hexPolygonUseDots
         hexPolygonColor={dotColor}
-        pointsData={EMPLOYEES}
+        pointsData={employees}
         pointLat="lat"
         pointLng="lng"
         pointAltitude={pointAltitude}

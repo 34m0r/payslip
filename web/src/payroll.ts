@@ -17,7 +17,8 @@ export interface Transfer {
 
 export interface PayrollEngine {
   readonly mode: "demo" | "testnet";
-  run(onUpdate: (t: Transfer) => void, signal: { cancelled: boolean }): Promise<void>;
+  /** `onPhase` narrates steps that belong to no single transfer (funding, current proof). */
+  run(onUpdate: (t: Transfer) => void, signal: { cancelled: boolean }, onPhase?: (phase: string) => void): Promise<void>;
 }
 
 /** Deterministic pseudo-ciphertext: stable per employee and run, looks like the event's v_tilde. */

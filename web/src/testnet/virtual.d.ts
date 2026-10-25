@@ -19,4 +19,6 @@ declare module "virtual:payslip-testnet" {
   export const deployment: TestnetDeployment | null;
   /** Demo employees' confidential secret `sk` (hex), by employee id. Dev builds only. */
   export const demoKeys: Record<string, string>;
+  /** The employer's testnet keys, hex scalars and a Stellar secret. Dev server only. */
+  export const employerKeys: { secret: string; sk: string; auditorSecret: string } | null;
 }

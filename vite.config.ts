@@ -16,15 +16,19 @@ const ISOLATION = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-E
  *   to its own URL, which break once a bundler chunks it, so the app loads it as native ESM.
  * - `virtual:payslip-testnet`: the public deployment (contract ids, accounts, payroll tx hashes)
  *   and, in dev only or when PAYSLIP_DEMO_KEYS=1, the demo employees' confidential keys (`sk`)
- *   for the employee screen. These are throwaway testnet keys; the verifier page needs none.
+ *   for the employee screen. The employer's keys (account secret, `sk`, audit key), which let the
+ *   globe sign real payrolls, are embedded in dev only. All are throwaway testnet keys; the
+ *   verifier page needs none.
  */
 function payslipTestnet(): Plugin {
   const id = "virtual:payslip-testnet";
   let embedKeys = false;
+  let serving = false;
   return {
     name: "payslip-testnet",
     configResolved(c) {
-      embedKeys = c.command === "serve" || process.env.PAYSLIP_DEMO_KEYS === "1";
+      serving = c.command === "serve";
+      embedKeys = serving || process.env.PAYSLIP_DEMO_KEYS === "1";
     },
     resolveId: (s) => (s === id ? "\0" + id : undefined),
     load(s) {
@@ -33,7 +37,12 @@ function payslipTestnet(): Plugin {
       const deployment = existsSync(DEPLOYMENT) ? JSON.parse(readFileSync(DEPLOYMENT, "utf8")) : null;
       const secrets = embedKeys && existsSync(SECRETS) ? JSON.parse(readFileSync(SECRETS, "utf8")) : null;
       const demoKeys = secrets ? Object.fromEntries(Object.entries(secrets.employees).map(([k, v]) => [k, (v as { sk: string }).sk])) : {};
-      return `export const deployment = ${JSON.stringify(deployment)};\nexport const demoKeys = ${JSON.stringify(demoKeys)};`;
+      const employerKeys = secrets && serving ? secrets.employer : null;
+      return [
+        `export const deployment = ${JSON.stringify(deployment)};`,
+        `export const demoKeys = ${JSON.stringify(demoKeys)};`,
+        `export const employerKeys = ${JSON.stringify(employerKeys)};`,
+      ].join("\n");
     },
     configureServer(server) {
       server.middlewares.use("/bb", (req, res, next) => {
