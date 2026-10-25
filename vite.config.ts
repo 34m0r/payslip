@@ -73,4 +73,6 @@ export default defineConfig({
     open: true, // browser from $BROWSER, set to Brave by scripts/dev.mjs
     headers: ISOLATION,
   },
+  // Same headers as production (vercel.json), so `vite preview` tests the real build.
+  preview: { port: 4174, strictPort: true, headers: ISOLATION },
 });
