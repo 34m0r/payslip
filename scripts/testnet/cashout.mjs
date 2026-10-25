@@ -132,5 +132,5 @@ if (!c.paymentTx && t.status === "pending_user_transfer_start") {
 
 const done = await pollUntil(anchor, token, c.anchorTxId, ["completed"], { timeoutMs: 30 * 60_000 });
 save({ status: "completed", amountOut: done.amount_out, completedAt: new Date().toISOString() });
-console.log(`\n✅ retrait terminé : ${done.amount_out ?? c.amount} USDC versés sur le compte bancaire (virement simulé, testnet)`);
+console.log(`\n✅ retrait terminé : ${done.amount_in ?? c.amount} USDC → ${done.amount_out ?? "?"} ${done.amount_out_asset?.replace("iso4217:", "") ?? "USDC"} versés sur le compte bancaire (virement simulé, taux de démo)`);
 process.exit(0);

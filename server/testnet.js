@@ -30,6 +30,8 @@ import deployment from "../deployments/testnet.json" with { type: "json" };
 import { handle as anchorHandle } from "./anchor-core.js";
 
 export const CASHOUT_MAX_USDC = 50;
+// Each demo employee is paid out in their city's currency by default (simulated rates, see anchor-core).
+const PAYOUT_CURRENCY = { "Lisbonne": "EUR", "São Paulo": "BRL", "Lagos": "NGN" };
 export const PAYROLL_COOLDOWN_S = 180;
 const RPC_URL = "https://soroban-testnet.stellar.org";
 const NETWORK = Networks.TESTNET;
@@ -213,7 +215,8 @@ export async function cashoutStart(origin, { employeeId, amount }) {
   if (!(n > 0) || n > CASHOUT_MAX_USDC) throw new ActionError(400, `montant entre 0 et ${CASHOUT_MAX_USDC} USDC sur la démo publique`);
   const kp = employeeKp(employeeId);
   const token = await sep10(origin, kp);
-  const { id, url } = await anchorCall(origin, "POST", "/sep24/transactions/withdraw/interactive", { body: { asset_code: "USDC", account: kp.publicKey(), amount: String(n) }, token });
+  const payout_currency = PAYOUT_CURRENCY[employeeOf(employeeId).city] ?? "USD";
+  const { id, url } = await anchorCall(origin, "POST", "/sep24/transactions/withdraw/interactive", { body: { asset_code: "USDC", account: kp.publicKey(), amount: String(n), payout_currency }, token });
   return { id, url };
 }
 

@@ -14,7 +14,7 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "auth", label: "Ouverture du retrait chez l'anchor (SEP-10, SEP-24)" },
   { id: "form", label: "Confirmation du montant dans la fenêtre de l'anchor" },
   { id: "settle", label: "Retrait confidentiel vers l'USDC public (preuve on-chain), puis paiement à l'anchor" },
-  { id: "payout", label: "Virement vers votre banque (simulé, testnet)" },
+  { id: "payout", label: "Conversion et virement vers votre banque (simulés, testnet)" },
 ];
 
 /** What survives a reload, so a cash-out resumes where it stopped (the server never pays twice). */
@@ -24,7 +24,8 @@ interface Saved {
   openedAt: number;
   withdrawTx?: string;
   paymentTx?: string;
-  completed?: { amount: string; at: string };
+  /** USDC withdrawn, and the simulated bank payout in local currency (e.g. "108.00 BRL"). */
+  completed?: { amount: string; payout?: string; at: string };
 }
 const KEY = (id: string) => `payslip.cashout.${id}`;
 const load = (id: string): Saved | null => { try { return JSON.parse(localStorage.getItem(KEY(id)) ?? "null"); } catch { return null; } };
@@ -37,7 +38,11 @@ async function api<T>(body: Record<string, unknown>): Promise<T> {
   return json as T;
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-type AnchorTx = { status: string; amount_in?: string; amount_out?: string; stellar_transaction_id?: string };
+type AnchorTx = { status: string; amount_in?: string; amount_out?: string; amount_out_asset?: string; stellar_transaction_id?: string };
+const payoutOf = (t: AnchorTx) => {
+  const ccy = t.amount_out_asset?.startsWith("iso4217:") ? t.amount_out_asset.slice(8) : null;
+  return ccy && t.amount_out ? Number(t.amount_out).toLocaleString("fr-FR", { style: "currency", currency: ccy }) : undefined;
+};
 
 export function Cashout({ employeeId }: { employeeId: string }) {
   const employee = deployment?.employees.find((e) => e.id === employeeId);
@@ -117,7 +122,7 @@ export function Cashout({ employeeId }: { employeeId: string }) {
         await sleep(2000);
         t = await api<AnchorTx>({ action: "status", employeeId, id: s.id });
       }
-      update({ ...s, paymentTx: s.paymentTx ?? t.stellar_transaction_id, completed: { amount: t.amount_out ?? t.amount_in ?? "", at: new Date().toISOString() } });
+      update({ ...s, paymentTx: s.paymentTx ?? t.stellar_transaction_id, completed: { amount: t.amount_in ?? "", payout: payoutOf(t), at: new Date().toISOString() } });
       setStep(null);
       setAmount("");
       setAck(false);
@@ -144,13 +149,13 @@ export function Cashout({ employeeId }: { employeeId: string }) {
     <section className="block" aria-labelledby="h-cashout">
       <h2 id="h-cashout">Retirer vers ma banque</h2>
       <p className="muted small">
-        Solde confidentiel : <strong>{balance === null ? "…" : usdc(usdcOf(balance))}</strong>. Retrait via l'anchor testnet de Payslip (SEP-24), virement bancaire simulé, {max} USDC maximum sur la démo publique.
+        Solde confidentiel : <strong>{balance === null ? "…" : usdc(usdcOf(balance))}</strong>. Retrait via l'anchor testnet de Payslip (SEP-24), versé dans votre monnaie au taux de démo, virement bancaire simulé, {max} USDC maximum sur la démo publique.
       </p>
       <p className="request">Le montant retiré devient public sur la blockchain : votre salaire reste confidentiel tant qu'il reste dans Payslip.</p>
 
       {saved?.completed && !running && (
         <p className="small">
-          Dernier retrait : <strong>{usdc(Number(saved.completed.amount))}</strong> versés sur votre banque (simulé).{" "}
+          Dernier retrait : <strong>{usdc(Number(saved.completed.amount))}</strong>{saved.completed.payout ? <> convertis en <strong>{saved.completed.payout}</strong></> : null} et versés sur votre banque (simulé, taux de démo).{" "}
           {saved.paymentTx && <a className="hash" href={txLink(saved.paymentTx)} target="_blank" rel="noreferrer">paiement ↗</a>}
         </p>
       )}

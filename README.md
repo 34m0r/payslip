@@ -61,7 +61,8 @@ Everything below runs on Stellar testnet, from the public site, with nothing to 
    ~2 s once the browser has fetched the proving parameters). It returns a short link and a QR code. Open it: ✓,
    verified against chain state, no amount shown, and a printable income certificate with a QR code to re-verify.
 3. **Cash out.** On `/salarie`, **Retirer vers ma banque** (up to 50 USDC on the public demo): confirm the amount
-   in the anchor's window, and follow the withdrawal through Payslip's anchor to `completed`.
+   in the anchor's window, which quotes it in the employee's currency (EUR in Lisbon, BRL in São Paulo, NGN in Lagos,
+   at fixed demo rates), and follow the withdrawal through Payslip's anchor to `completed`.
 
 The demo accounts' salaries are fictitious, their transactions real. To keep the public demo usable for every
 visitor, a payroll can start at most every 3 minutes and a cash-out is capped at 50 USDC.
@@ -101,7 +102,9 @@ The anchor is Payslip's own testnet anchor, served by the app on its own domain:
 server locally (`server/anchor-core.js`, one handler for both). It keeps no state of its own: the confirmed amount
 is a `manageData` entry on the anchor's account, the memo is derived from the withdrawal id, and the status is read
 from Horizon on each request. The SDF test anchor caps withdrawals at 10 USDC; ours has no cap beyond the employee's
-balance, and its **bank payout is simulated**. The client (`web/src/anchor/anchor.ts`) works with any SEP-24 anchor.
+balance, and its **bank payout is simulated**: employees keep USDC, and a withdrawal is paid out in their local
+currency at a **fixed demo rate**, reported in SEP-24's `amount_out` / `amount_out_asset` (e.g. `iso4217:BRL`). In
+production that conversion belongs to an anchor in the employee's country, quoting live rates (SEP-38). The client (`web/src/anchor/anchor.ts`) works with any SEP-24 anchor.
 
 On Vercel the anchor needs three environment variables: `ANCHOR_SIGNING_SECRET`, `ANCHOR_DISTRIBUTION_SECRET` and
 `ANCHOR_JWT_SECRET` (testnet keys, created in `.secrets/anchor.secret.json`). The testnet actions need
@@ -167,7 +170,7 @@ node scripts/testnet/income.ts e03 3000         # D-income end to end on testnet
   opened elsewhere still verifies, but the page warns that it was made for another request.
 - **Withdrawing to public USDC reveals the withdrawn amount.** A confidential off-ramp, where the anchor holds a
   confidential account and receives a confidential_transfer, is on our roadmap. Our testnet anchor simulates the
-  bank payout.
+  bank payout and its currency conversion, at fixed demo rates.
 - **Retention.** Soroban RPC keeps about 7 days of events, so the demo's "months" are short periods.
   Production needs an indexer, which the SDK supports.
 - **Demo keys.** One server plays the employer and the three employees: it holds their testnet signing keys,
