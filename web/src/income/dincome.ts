@@ -191,39 +191,39 @@ export async function verifyIncome(p: {
   if (bundle.circuitId !== INCOME_CIRCUIT_ID) throw new IncomeVerifyError("request", `unknown circuit "${bundle.circuitId}"`);
   if (!sameRequest(bundle.request, request)) throw new IncomeVerifyError("request", "this attestation answers another request");
   if (request.token !== client.cfg.contracts.token) throw new IncomeVerifyError("request", "request names another token contract");
-  steps.push("L'attestation répond à votre demande (clé P_R, nonce ν, seuil, employeur)");
+  steps.push("The attestation answers your request (key P_R, nonce ν, threshold, employer)");
 
   if (!prover.zk) throw new IncomeVerifyError("vk-pinning", "income proofs are ZK-flavour");
   const vk = await prover.verificationKey();
   if (vk.length !== pinnedVk.length || !vk.every((b, i) => b === pinnedVk[i])) {
-    throw new IncomeVerifyError("vk-pinning", "le circuit chargé ne correspond pas à la clé de vérification épinglée");
+    throw new IncomeVerifyError("vk-pinning", "the loaded circuit does not match the pinned verification key");
   }
-  steps.push(`Circuit D-income épinglé (clé de vérification de ${vk.length} octets)`);
+  steps.push(`D-income circuit pinned (${vk.length}-byte verification key)`);
 
-  if (bundle.refs.length !== N) throw new IncomeVerifyError("resolve-event", `${N} virements attendus, ${bundle.refs.length} reçus`);
+  if (bundle.refs.length !== N) throw new IncomeVerifyError("resolve-event", `${N} transfers expected, ${bundle.refs.length} received`);
   const events: TransferEvent[] = [];
   for (const ref of bundle.refs) {
     const ev = await resolveEventRef(client, ref).catch(() => null);
     if (!ev) {
-      throw new IncomeVerifyError("resolve-event", `virement introuvable on-chain (ledger ${ref.ledger}) : mauvaise référence, ou plus vieux que la rétention RPC (~7 jours)`);
+      throw new IncomeVerifyError("resolve-event", `transfer not found on-chain (ledger ${ref.ledger}): wrong reference, or older than the RPC's retention (~7 days)`);
     }
     if (!isSalary(ev, request.employer, bundle.holder)) {
-      throw new IncomeVerifyError("check-event", `l'événement du ledger ${ref.ledger} n'est pas un virement de ${short(request.employer)} vers ${short(bundle.holder)}`);
+      throw new IncomeVerifyError("check-event", `the event at ledger ${ref.ledger} is not a transfer from ${short(request.employer)} to ${short(bundle.holder)}`);
     }
     events.push(ev);
   }
-  if (new Set(events.map((ev) => ev.cursor)).size !== N) throw new IncomeVerifyError("check-event", "le même virement est compté deux fois");
-  steps.push(`${N} virements confidentiels distincts relus on-chain, tous de l'employeur vers le salarié`);
+  if (new Set(events.map((ev) => ev.cursor)).size !== N) throw new IncomeVerifyError("check-event", "the same transfer is counted twice");
+  steps.push(`${N} distinct confidential transfers re-read on-chain, all from the employer to the employee`);
 
   const account = await client.confidentialBalance(bundle.holder);
-  if (!account) throw new IncomeVerifyError("resolve-account", "le salarié n'a pas de compte confidentiel");
-  steps.push("Clé de lecture publique (PVK) du salarié relue on-chain");
+  if (!account) throw new IncomeVerifyError("resolve-account", "the employee has no confidential account");
+  steps.push("The employee's public viewing key (PVK) re-read on-chain");
 
   const addrF = addressToField(client.cfg.contracts.token);
   const inputs = flatten(publicInputs({ addrF, pvk: pointCoords(account.viewingPublicKey), events, request }));
   const ok = await prover.verify({ proof: hexToBytes(bundle.proof), publicInputs: inputs }).catch(() => false);
-  if (!ok) throw new IncomeVerifyError("verify-proof", "la preuve ne vérifie pas contre les données on-chain");
-  steps.push("Preuve UltraHonk (ZK) vérifiée contre les entrées publiques reconstruites depuis la chaîne");
+  if (!ok) throw new IncomeVerifyError("verify-proof", "the proof does not verify against the on-chain data");
+  steps.push("UltraHonk (ZK) proof verified against public inputs rebuilt from the chain");
 
   return { threshold: BigInt(request.threshold), employer: request.employer, holder: bundle.holder, events, steps };
 }

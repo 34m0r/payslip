@@ -94,7 +94,7 @@ export function GlobeView({ employees, transfers, focusId, selectedId, onSelect,
       const el = document.createElement("div");
       el.className = `hub${hub.isHQ ? " hub--hq" : ""}`;
       el.innerHTML = `<span class="hub__pin"></span><span class="hub__label"><strong>${hub.city}</strong><em>${
-        hub.isHQ ? "Siège et trésorerie" : `${counts.get(hub.id)} salarié${counts.get(hub.id)! > 1 ? "s" : ""}`
+        hub.isHQ ? "HQ and treasury" : `${counts.get(hub.id)} employee${counts.get(hub.id)! > 1 ? "s" : ""}`
       }</em></span>`;
       return { ...hub, el };
     });
@@ -207,7 +207,7 @@ export function GlobeView({ employees, transfers, focusId, selectedId, onSelect,
   const ringColor = useCallback(() => (t: number) => rgba(theme.flow, Math.max(0, 1 - t)), [theme.flow]);
 
   return (
-    <div ref={wrap} className="globe" role="img" aria-label="Globe des filiales d'Atlântica Labs et des virements de paie">
+    <div ref={wrap} className="globe" role="img" aria-label="Globe of Atlântica Labs' offices and payroll transfers">
       <Globe
         ref={globe}
         width={w}

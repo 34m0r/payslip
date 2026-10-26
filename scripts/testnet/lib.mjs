@@ -34,7 +34,7 @@ export const txLink = (hash) => `${EXPERT}/tx/${hash}`;
 
 // The three demo employees paid on testnet: ids, names and salaries from web/src/data.ts.
 export const TESTNET_EMPLOYEES = [
-  { id: "e03", name: "Clara Duarte", city: "Lisbonne", salary: 3300 },
+  { id: "e03", name: "Clara Duarte", city: "Lisbon", salary: 3300 },
   { id: "e04", name: "Rafael Oliveira", city: "São Paulo", salary: 3900 },
   { id: "e07", name: "Adaeze Okafor", city: "Lagos", salary: 3700 },
 ];

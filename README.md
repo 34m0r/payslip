@@ -53,14 +53,14 @@ the public demo adds more with every visitor. The scripted payrolls and cash-out
 
 Everything below runs on Stellar testnet, from the public site, with nothing to install:
 
-1. **Pay.** On `/`, switch the globe to **Testnet** and click **Lancer la paie**: three real confidential
+1. **Pay.** On `/`, switch the globe to **Testnet** and click **Run payroll**: three real confidential
    transfers, about 40 s. Open a transfer for its stellar.expert link: the amount is a ciphertext. Then switch to
-   *Vue auditeur*: the amounts, decrypted from the chain with the employer's audit key.
-2. **Prove.** On `/verifier`, create a request (e.g. 3 000 USDC/month) and open the link it gives: `/salarie` reads
+   *Auditor view*: the amounts, decrypted from the chain with the employer's audit key.
+2. **Prove.** On `/verifier`, create a request (e.g. 3 000 USDC/month) and open the link it gives: `/employee` reads
    the employee's real salaries from the chain and generates the D-income proof **in your browser** (a few seconds;
    ~2 s once the browser has fetched the proving parameters). It returns a short link and a QR code. Open it: ✓,
    verified against chain state, no amount shown, and a printable income certificate with a QR code to re-verify.
-3. **Cash out.** On `/salarie`, **Retirer vers ma banque** (up to 50 USDC on the public demo): confirm the amount
+3. **Cash out.** On `/employee`, **Cash out to my bank** (up to 50 USDC on the public demo): confirm the amount
    in the anchor's window, which quotes it in the employee's currency (EUR in Lisbon, BRL in São Paulo, NGN in Lagos,
    at fixed demo rates), and follow the withdrawal through Payslip's anchor to `completed`.
 
@@ -76,13 +76,13 @@ npm run dev        # http://localhost:5174, opens Brave (override: BROWSER="Goog
 
 | Page | What it does |
 |---|---|
-| `/` **Employer** | The payroll globe. **Demo** mode runs a simulated 14-person payroll. **Testnet** mode pays the 3 testnet employees for real: the server deposits the period's USDC, then proves and submits each `confidential_transfer` (~2 s per proof, ~40 s per payroll), streaming each step to the globe. A transfer is marked received only once its on-chain event decrypts to the salary under the employer's audit key. *Vue publique* shows the real ciphertexts; *Vue auditeur* shows the amounts. |
-| `/salarie` **Employee** | Reads the employee's salary events from Soroban RPC and decrypts them on the device. It opens a verifier's request link, generates the D-income proof in the browser (noir_js + bb.js, a few seconds), and returns a short link with a QR code. |
+| `/` **Employer** | The payroll globe. **Demo** mode runs a simulated 14-person payroll. **Testnet** mode pays the 3 testnet employees for real: the server deposits the period's USDC, then proves and submits each `confidential_transfer` (~2 s per proof, ~40 s per payroll), streaming each step to the globe. A transfer is marked received only once its on-chain event decrypts to the salary under the employer's audit key. *Public view* shows the real ciphertexts; *Auditor view* shows the amounts. |
+| `/employee` **Employee** | Reads the employee's salary events from Soroban RPC and decrypts them on the device. It opens a verifier's request link, generates the D-income proof in the browser (noir_js + bb.js, a few seconds), and returns a short link with a QR code. |
 | `/verifier` **Verifier** | Creates a request (minimum monthly income), then verifies the attestation that answers it, and prints it as an income certificate (minimum, employer, period, verification time, QR code to re-verify). Short links are stored server-side (Vercel Blob): transport only, every input is still rebuilt from chain state. |
 
 ### Cash-out to a bank account (SEP-10 + SEP-24)
 
-On `/salarie`, **Retirer vers ma banque** withdraws part of the employee's salary through a SEP-24 anchor.
+On `/employee`, **Cash out to my bank** withdraws part of the employee's salary through a SEP-24 anchor.
 The anchor's window opens first. Only once the employee confirms the amount there does the server make the
 confidential `withdraw` of exactly that amount to their public USDC (a proof verified on-chain), pay the anchor with
 its memo, and the page follow the withdrawal to `completed`. A cash-out resumes after a reload and never pays the

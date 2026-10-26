@@ -31,7 +31,7 @@ import { handle as anchorHandle } from "./anchor-core.js";
 
 export const CASHOUT_MAX_USDC = 50;
 // Each demo employee is paid out in their city's currency by default (simulated rates, see anchor-core).
-const PAYOUT_CURRENCY = { "Lisbonne": "EUR", "São Paulo": "BRL", "Lagos": "NGN" };
+const PAYOUT_CURRENCY = { "Lisbon": "EUR", "Lisbonne": "EUR", "São Paulo": "BRL", "Lagos": "NGN" };
 export const PAYROLL_COOLDOWN_S = 180;
 const RPC_URL = "https://soroban-testnet.stellar.org";
 const NETWORK = Networks.TESTNET;
@@ -135,10 +135,10 @@ const cipherOf = (vTilde) => {
 export async function runPayroll(emit) {
   const s = secrets();
   const c = client();
-  if (payrollRunning) throw new ActionError(429, "Une paie est déjà en cours.");
+  if (payrollRunning) throw new ActionError(429, "A payroll is already running.");
   const age = await lastPayrollAge(c);
   if (age !== null && age < PAYROLL_COOLDOWN_S) {
-    throw new ActionError(429, `Une paie vient d'être lancée : réessayez dans ${Math.ceil((PAYROLL_COOLDOWN_S - age) / 60)} min.`);
+    throw new ActionError(429, `A payroll just ran: try again in ${Math.ceil((PAYROLL_COOLDOWN_S - age) / 60)} min.`);
   }
   payrollRunning = true;
   try {
@@ -151,10 +151,10 @@ export async function runPayroll(emit) {
     const total = deployment.employees.reduce((sum, e) => sum + e.salary, 0);
 
     if ((await usdcBalance(employer)) < total) {
-      emit({ type: "phase", text: "Recharge de la trésorerie testnet (friendbot + DEX)" });
+      emit({ type: "phase", text: "Refilling the testnet treasury (friendbot + DEX)" });
       await topUp(employerKp, total);
     }
-    emit({ type: "phase", text: "Dépôt de la paie dans la trésorerie confidentielle" });
+    emit({ type: "phase", text: "Depositing the payroll into the confidential treasury" });
     await submitDeposit(c, signer, employer, employer, units(total));
     await submitMerge(c, signer, employer);
 
@@ -162,14 +162,14 @@ export async function runPayroll(emit) {
     const prover = new CircuitProver(loadCircuit("transfer"));
     for (const e of deployment.employees) {
       emit({ type: "update", transfer: { employeeId: e.id, status: "proving", ciphertext: "···· ···· ····" } });
-      emit({ type: "phase", text: `Preuve du virement à ${e.name}` });
+      emit({ type: "phase", text: `Proving the transfer to ${e.name}` });
       await state.sync();
       const { v, r } = await state.spendableForProof();
       const recipient = await c.confidentialBalance(e.address);
       const w = buildTransferWitness({ keys, v, r, amount: units(e.salary), pvkB: recipient.viewingPublicKey, kAudR: kAud, kAudS: kAud });
       const { proof } = await prover.prove(w.inputs);
       emit({ type: "update", transfer: { employeeId: e.id, status: "sending", ciphertext: cipherOf(w.payload.vTilde) } });
-      emit({ type: "phase", text: `Virement confidentiel à ${e.name}` });
+      emit({ type: "phase", text: `Confidential transfer to ${e.name}` });
       const startLedger = await c.latestLedger();
       const res = await submitTransfer(c, signer, employer, e.address, w, proof);
       const { events } = await fetchEvents(c, { startLedger });
@@ -212,7 +212,7 @@ const employeeKp = (id) => {
 /** Open an interactive withdrawal at the anchor; the browser shows its page in a popup. */
 export async function cashoutStart(origin, { employeeId, amount }) {
   const n = Number(amount);
-  if (!(n > 0) || n > CASHOUT_MAX_USDC) throw new ActionError(400, `montant entre 0 et ${CASHOUT_MAX_USDC} USDC sur la démo publique`);
+  if (!(n > 0) || n > CASHOUT_MAX_USDC) throw new ActionError(400, `amount between 0 and ${CASHOUT_MAX_USDC} USDC on the public demo`);
   const kp = employeeKp(employeeId);
   const token = await sep10(origin, kp);
   const payout_currency = PAYOUT_CURRENCY[employeeOf(employeeId).city] ?? "USD";
@@ -236,7 +236,7 @@ export async function cashoutSettle(origin, { employeeId, id }) {
   const account = kp.publicKey();
   const t = await cashoutStatus(origin, { employeeId, id });
   if (t.status !== "pending_user_transfer_start") return { status: t.status };
-  if (Number(t.amount_in) > CASHOUT_MAX_USDC) throw new ActionError(400, `montant au-delà de ${CASHOUT_MAX_USDC} USDC`);
+  if (Number(t.amount_in) > CASHOUT_MAX_USDC) throw new ActionError(400, `amount above ${CASHOUT_MAX_USDC} USDC`);
 
   const paid = (await horizon.payments().forAccount(account).order("desc").limit(50).join("transactions").call()).records.find(
     (p) => p.type === "payment" && p.from === account && p.to === t.withdraw_anchor_account && p.transaction_attr?.memo === t.withdraw_memo,
@@ -258,7 +258,7 @@ export async function cashoutSettle(origin, { employeeId, id }) {
     let state = await engine.sync();
     if (state.receiving.v > 0n) { await submitMerge(c, signer, account); state = await engine.sync(); }
     const { v, r } = await engine.spendableForProof();
-    if (v < need - have) throw new ActionError(400, `solde confidentiel insuffisant (${fromUnits(v)} USDC)`);
+    if (v < need - have) throw new ActionError(400, `insufficient confidential balance (${fromUnits(v)} USDC)`);
     const w = buildWithdrawWitness({ keys, v, r, amount: need - have, kAudS: await c.auditorKey(0) });
     const prover = new CircuitProver(loadCircuit("withdraw"));
     const { proof } = await prover.prove(w.inputs);

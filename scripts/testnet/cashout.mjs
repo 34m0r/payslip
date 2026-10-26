@@ -63,13 +63,13 @@ if (!c) {
   d.cashouts.push(c);
   saveDeployment(d);
 } else {
-  console.log(`reprise du retrait commencé le ${c.startedAt} (${c.amount} USDC, étape « ${c.status} »)`);
+  console.log(`resuming the cash-out started at ${c.startedAt} (${c.amount} USDC, step "${c.status}")`);
 }
 const save = (patch) => { Object.assign(c, patch); saveDeployment(d); };
 // A cash-out left open at another anchor, never paid: keep its withdraw (the USDC is on the
 // employee's public account) and reopen the withdrawal at this anchor.
 if (c.anchorTxId && (c.anchorDomain ?? "testanchor.stellar.org") !== ANCHOR_DOMAIN && !c.paymentTx) {
-  console.log(`retrait ouvert chez ${c.anchorDomain ?? "testanchor.stellar.org"} abandonné, reprise chez ${ANCHOR_DOMAIN}`);
+  console.log(`withdrawal opened at ${c.anchorDomain ?? "testanchor.stellar.org"} abandoned, reopening at ${ANCHOR_DOMAIN}`);
   save({ abandonedAnchor: { domain: c.anchorDomain ?? "testanchor.stellar.org", id: c.anchorTxId }, anchorTxId: undefined, interactiveUrl: undefined, status: c.withdrawTx ? "withdrawn" : c.status });
 }
 const units = toUnits(Number(c.amount));
@@ -81,7 +81,7 @@ if (!c.withdrawTx) {
   let state = await engine.sync();
   if (state.receiving.v > 0n) {
     const m = await retry("merge", () => submitMerge(client, signerOf(kp), ACCOUNT));
-    console.log(`merge des salaires reçus : ${txLink(m.hash)}`);
+    console.log(`merged received salaries: ${txLink(m.hash)}`);
     save({ mergeTx: m.hash });
     state = await engine.sync();
   }
@@ -92,13 +92,13 @@ if (!c.withdrawTx) {
   const account = await horizon.loadAccount(ACCOUNT);
   if (!account.balances.some((b) => b.asset_code === USDC.code && b.asset_issuer === USDC.issuer)) {
     await submitClassic(kp, [Operation.changeTrust({ asset: USDC })]);
-    console.log("trustline USDC ajoutée au compte public");
+    console.log("USDC trustline added to the public account");
   }
 
   const w = buildWithdrawWitness({ keys, v, r, amount: units, kAudS: await client.auditorKey(0) });
   const { proof } = await new CircuitProver(loadCircuit("withdraw")).prove(w.inputs);
   const res = await retry("withdraw", () => submitWithdraw(client, signerOf(kp), ACCOUNT, ACCOUNT, units, w, proof));
-  console.log(`withdraw confidentiel → USDC public (${c.amount} USDC, montant PUBLIC) : ${txLink(res.hash)}`);
+  console.log(`confidential withdraw → public USDC (${c.amount} USDC, amount now PUBLIC): ${txLink(res.hash)}`);
   save({ withdrawTx: res.hash, status: "withdrawn" });
 }
 
@@ -114,7 +114,7 @@ if (!c.anchorTxId || stale) {
 }
 let t = await getTx(anchor, token, c.anchorTxId);
 if (t.status === "incomplete") {
-  console.log(`\nOuvrez cette page et remplissez le formulaire de retrait de l'anchor :\n${c.interactiveUrl}\n`);
+  console.log(`\nOpen this page and fill in the anchor's withdrawal form:\n${c.interactiveUrl}\n`);
   t = await pollUntil(anchor, token, c.anchorTxId, ["pending_user_transfer_start"], { timeoutMs: 30 * 60_000 });
 }
 
@@ -123,14 +123,14 @@ if (t.status === "incomplete") {
 // between submit and save finds the anchor past `pending_user_transfer_start` and skips.
 if (!c.paymentTx && t.status === "pending_user_transfer_start") {
   const have = await usdcBalance(ACCOUNT);
-  if (have < Number(t.amount_in)) throw new Error(`USDC public ${have} < montant demandé par l'anchor ${t.amount_in}`);
+  if (have < Number(t.amount_in)) throw new Error(`public USDC ${have} < amount requested by the anchor ${t.amount_in}`);
   const tx = await buildAnchorPaymentTx(ACCOUNT, kp, USDC, t);
   const sent = await horizon.submitTransaction(tx);
-  console.log(`paiement de ${t.amount_in} USDC à l'anchor (memo ${t.withdraw_memo_type ?? "none"}) : ${txLink(sent.hash)}`);
+  console.log(`paid ${t.amount_in} USDC to the anchor (memo ${t.withdraw_memo_type ?? "none"}): ${txLink(sent.hash)}`);
   save({ paymentTx: sent.hash, amountIn: t.amount_in, status: "paid" });
 }
 
 const done = await pollUntil(anchor, token, c.anchorTxId, ["completed"], { timeoutMs: 30 * 60_000 });
 save({ status: "completed", amountOut: done.amount_out, completedAt: new Date().toISOString() });
-console.log(`\n✅ retrait terminé : ${done.amount_in ?? c.amount} USDC → ${done.amount_out ?? "?"} ${done.amount_out_asset?.replace("iso4217:", "") ?? "USDC"} versés sur le compte bancaire (virement simulé, taux de démo)`);
+console.log(`\n✅ cash-out completed: ${done.amount_in ?? c.amount} USDC → ${done.amount_out ?? "?"} ${done.amount_out_asset?.replace("iso4217:", "") ?? "USDC"} paid to the bank account (simulated transfer, demo rate)`);
 process.exit(0);

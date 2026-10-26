@@ -30,5 +30,5 @@ export function Decrypt({ revealed, cipher, plain, delay = 0 }: { revealed: bool
     return () => cancelAnimationFrame(raf);
   }, [target, delay]);
 
-  return <span className={revealed ? "amount" : "amount amount--cipher"} aria-label={revealed ? plain : "Montant chiffré"}>{text}</span>;
+  return <span className={revealed ? "amount" : "amount amount--cipher"} aria-label={revealed ? plain : "Encrypted amount"}>{text}</span>;
 }

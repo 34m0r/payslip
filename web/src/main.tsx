@@ -11,6 +11,7 @@ const path = location.pathname.replace(/\/+$/, "");
 // same tab (a pasted link) changes only the fragment, so reload to read it.
 addEventListener("hashchange", () => location.reload());
 
-const Page = path === "/salarie" ? Employee : path === "/verifier" ? Verifier : App;
+// /salarie: the employee page's former path, kept so earlier links still open.
+const Page = path === "/employee" || path === "/salarie" ? Employee : path === "/verifier" ? Verifier : App;
 
 createRoot(document.getElementById("root")!).render(<StrictMode><Page /></StrictMode>);

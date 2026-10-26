@@ -14,10 +14,10 @@ const rosterFor = (mode: Mode) => (mode === "testnet" ? EMPLOYEES.filter((e) => 
 type View = "public" | "auditor";
 
 const STATUS: Record<TransferStatus, string> = {
-  waiting: "En attente",
-  proving: "Preuve en cours",
-  sending: "En route",
-  received: "Reçu",
+  waiting: "Waiting",
+  proving: "Proving",
+  sending: "Sending",
+  received: "Received",
 };
 
 export function App() {
@@ -88,18 +88,18 @@ export function App() {
   return (
     <div className="app">
       <Topbar current="employer">
-        <div className="viewswitch" role="radiogroup" aria-label="Point de vue">
-          <button role="radio" aria-checked={view === "public"} onClick={() => setView("public")}>Vue publique</button>
-          <button role="radio" aria-checked={view === "auditor"} onClick={() => setView("auditor")}>Vue auditeur</button>
+        <div className="viewswitch" role="radiogroup" aria-label="View">
+          <button role="radio" aria-checked={view === "public"} onClick={() => setView("public")}>Public view</button>
+          <button role="radio" aria-checked={view === "auditor"} onClick={() => setView("auditor")}>Auditor view</button>
         </div>
         {testnetAvailable ? (
-          <div className="viewswitch" role="radiogroup" aria-label="Données">
-            <button role="radio" aria-checked={mode === "demo"} onClick={() => switchMode("demo")} disabled={running}>Démo</button>
+          <div className="viewswitch" role="radiogroup" aria-label="Data">
+            <button role="radio" aria-checked={mode === "demo"} onClick={() => switchMode("demo")} disabled={running}>Demo</button>
             <button role="radio" aria-checked={mode === "testnet"} onClick={() => switchMode("testnet")} disabled={running}>Testnet</button>
           </div>
         ) : (
-          <span className="demo" title="Les virements, preuves et hashes de cet écran sont simulés. Le mode testnet utilise le SDK Confidential Token d'OpenZeppelin.">
-            Démo, données simulées
+          <span className="demo" title="The transfers, proofs and hashes on this screen are simulated. Testnet mode uses OpenZeppelin's Confidential Token SDK.">
+            Demo, simulated data
           </span>
         )}
       </Topbar>
@@ -111,12 +111,12 @@ export function App() {
           <div className="overlay">
             {selected && selectedTransfer ? (
               <article className="card" aria-live="polite">
-                <button className="card__close" onClick={() => setSelectedId(null)} aria-label="Fermer la fiche">×</button>
+                <button className="card__close" onClick={() => setSelectedId(null)} aria-label="Close">×</button>
                 <h2>{selected.name}</h2>
                 <p className="muted">{selected.role}, {selected.city}</p>
                 <dl>
-                  <div><dt>Salaire du mois</dt><dd><Decrypt revealed={revealed} cipher={selectedTransfer.ciphertext} plain={usdc(selected.salary)} /></dd></div>
-                  <div><dt>Statut</dt><dd>{STATUS[selectedTransfer.status]}</dd></div>
+                  <div><dt>Salary this month</dt><dd><Decrypt revealed={revealed} cipher={selectedTransfer.ciphertext} plain={usdc(selected.salary)} /></dd></div>
+                  <div><dt>Status</dt><dd>{STATUS[selectedTransfer.status]}</dd></div>
                   {selectedTransfer.hash && (
                     <div><dt>Transaction</dt><dd className="hash">{mode === "testnet"
                       ? <a href={`https://stellar.expert/explorer/testnet/tx/${selectedTransfer.hash}`} target="_blank" rel="noreferrer">{selectedTransfer.hash.slice(0, 10)}…{selectedTransfer.hash.slice(-6)} ↗</a>
@@ -127,8 +127,8 @@ export function App() {
             ) : (
               <p className="caption">
                 {revealed
-                  ? `Montants déchiffrés sur cet appareil avec la clé d'audit d'${COMPANY.name}.`
-                  : "Tout le monde voit qui paie qui. Personne ne voit combien."}
+                  ? `Amounts decrypted on this device with ${COMPANY.name}'s audit key.`
+                  : "Everyone sees who pays whom. No one sees how much."}
               </p>
             )}
           </div>
@@ -136,25 +136,25 @@ export function App() {
 
         <aside className="panel">
           <div className="panel__head">
-            <h1>Paie d'octobre 2026</h1>
+            <h1>October 2026 payroll</h1>
             <p className="muted">{mode === "testnet"
-              ? `${employees.length} salariés payés en vrai sur Stellar testnet, en USDC, depuis la trésorerie confidentielle d'${COMPANY.name}.`
-              : `${employees.length} salariés dans ${HUBS.length} pays, payés en USDC depuis la trésorerie de Lisbonne.`}</p>
+              ? `${employees.length} employees paid for real on Stellar testnet, in USDC, from ${COMPANY.name}'s confidential treasury.`
+              : `${employees.length} employees in ${HUBS.length} countries, paid in USDC from the Lisbon treasury.`}</p>
           </div>
 
           <div className="summary">
             <div>
-              <span className="summary__label">Total de la paie</span>
+              <span className="summary__label">Payroll total</span>
               <Decrypt revealed={revealed} cipher={ciphertextFor(`total:${runId}`)} plain={usdc(total)} />
             </div>
-            <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={employees.length} aria-valuenow={received} aria-label="Virements reçus">
+            <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={employees.length} aria-valuenow={received} aria-label="Transfers received">
               <span style={{ transform: `scaleX(${received / employees.length})` }} />
             </div>
-            <p className="muted small">{received} virement{received > 1 ? "s" : ""} reçu{received > 1 ? "s" : ""} sur {employees.length}</p>
+            <p className="muted small">{received} of {employees.length} transfers received</p>
           </div>
 
           <button className="btn btn--primary" onClick={run} disabled={running}>
-            {running ? "Paie en cours…" : done ? "Relancer la paie" : "Lancer la paie"}
+            {running ? "Payroll running…" : done ? "Run payroll again" : "Run payroll"}
           </button>
           {phase && <p className="muted small" aria-live="polite">{phase}…</p>}
           {error && <p className="error small">{error}</p>}
@@ -162,7 +162,7 @@ export function App() {
           <div className="roster">
             {HUBS.filter((hub) => employees.some((e) => e.hub === hub.id)).map((hub) => (
               <section key={hub.id} className="roster__group" aria-labelledby={`hub-${hub.id}`}>
-                <h3 id={`hub-${hub.id}`}>{hub.city}, {hub.country}{hub.isHQ ? <span className="tag">Siège</span> : null}</h3>
+                <h3 id={`hub-${hub.id}`}>{hub.city}, {hub.country}{hub.isHQ ? <span className="tag">HQ</span> : null}</h3>
                 <ul>
                   {employees.filter((e) => e.hub === hub.id).map((e, i) => {
                     const t = transfers.find((x) => x.employeeId === e.id)!;

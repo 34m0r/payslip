@@ -9,10 +9,10 @@ import { Topbar } from "./Topbar";
 import { Cashout } from "./Cashout";
 
 const STAGES: { id: ProveStage; label: string }[] = [
-  { id: "decrypt", label: "Déchiffrement de vos 3 derniers salaires, sur cet appareil" },
-  { id: "witness", label: "Préparation du témoin (clé et montants restent privés)" },
-  { id: "prove", label: "Génération de la preuve à divulgation nulle" },
-  { id: "self-check", label: "Vérification locale de la preuve" },
+  { id: "decrypt", label: "Decrypting your last 3 salaries, on this device" },
+  { id: "witness", label: "Preparing the witness (key and amounts stay private)" },
+  { id: "prove", label: "Generating the zero-knowledge proof" },
+  { id: "self-check", label: "Checking the proof locally" },
 ];
 
 type Salary = { ev: TransferEvent; amount: bigint };
@@ -53,7 +53,7 @@ export function Employee() {
     return (
       <div className="page">
         <Topbar current="employee" />
-        <main className="sheet"><p className="muted">Aucun compte salarié de démo n'est disponible dans ce build (clés testnet absentes).</p></main>
+        <main className="sheet"><p className="muted">No demo employee account is available in this build (no testnet keys).</p></main>
       </div>
     );
   }
@@ -86,13 +86,13 @@ export function Employee() {
       <Topbar current="employee" />
       <main className="sheet">
         <header className="sheet__head">
-          <p className="eyebrow">Espace salarié · testnet</p>
+          <p className="eyebrow">Employee · testnet</p>
           <h1>{employee.name}</h1>
-          <p className="muted">Chez {deployment.employer.name}, {employee.city}. Vos salaires arrivent chiffrés : seule votre clé les lit.</p>
-          <p className="muted small">Comptes de démonstration sur Stellar testnet : salaires fictifs, transactions réelles.</p>
+          <p className="muted">At {deployment.employer.name}, {employee.city}. Your salaries arrive encrypted: only your key reads them.</p>
+          <p className="muted small">Demo accounts on Stellar testnet: fictitious salaries, real transactions.</p>
           {employees.length > 1 && (
             <label className="field field--inline">
-              <span>Compte de démo</span>
+              <span>Demo account</span>
               <select value={employeeId} onChange={(e) => { setEmployeeId(e.target.value); setPhase({ kind: "idle" }); }}>
                 {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
@@ -101,9 +101,9 @@ export function Employee() {
         </header>
 
         <section className="block" aria-labelledby="h-salaries">
-          <h2 id="h-salaries">Vos {N} derniers salaires</h2>
-          {loadError && <p className="error">Lecture on-chain impossible : {loadError}</p>}
-          {!salaries && !loadError && <p className="muted">Lecture des virements sur Stellar testnet…</p>}
+          <h2 id="h-salaries">Your last {N} salaries</h2>
+          {loadError && <p className="error">Could not read the chain: {loadError}</p>}
+          {!salaries && !loadError && <p className="muted">Reading the transfers on Stellar testnet…</p>}
           {salaries && (
             <ul className="ledger">
               {salaries.map(({ ev, amount }) => (
@@ -116,45 +116,45 @@ export function Employee() {
               <li className="ledger__total"><span>Total</span><span className="amount">{usdc(usdcOf(total))}</span><span /></li>
             </ul>
           )}
-          <p className="muted small">Sur la blockchain, chacun de ces virements montre l'employeur et vous, jamais le montant.</p>
+          <p className="muted small">On the blockchain, each of these transfers shows the employer and you, never the amount.</p>
         </section>
 
         <section className="block" aria-labelledby="h-attest">
-          <h2 id="h-attest">Attestation de revenus</h2>
+          <h2 id="h-attest">Income attestation</h2>
           {!request ? (
             <p className="muted">
-              Pas de demande en cours. Votre propriétaire (ou votre banque) crée une demande sur la{" "}
-              <a href="/verifier">page de vérification</a> et vous envoie le lien : il s'ouvre ici.
+              No request yet. Your landlord (or your bank) creates one on the{" "}
+              <a href="/verifier">verification page</a> and sends you the link: it opens here.
             </p>
           ) : (
             <>
               <div className="request">
                 <p>
-                  <strong>On vous demande de prouver</strong> des salaires d'au moins{" "}
-                  <strong>{usdc(usdcOf(BigInt(request.threshold)) / N)}/mois</strong> sur {N} mois
-                  (au moins {usdc(usdcOf(BigInt(request.threshold)))} au total), versés par {deployment.employer.name}.
+                  <strong>You are asked to prove</strong> salaries of at least{" "}
+                  <strong>{usdc(usdcOf(BigInt(request.threshold)) / N)}/month</strong> over {N} months
+                  (at least {usdc(usdcOf(BigInt(request.threshold)))} in total), paid by {deployment.employer.name}.
                 </p>
-                <p className="muted small">Le vérificateur saura seulement si c'est vrai. Ni vos montants, ni leur total.</p>
+                <p className="muted small">The verifier will only learn whether it is true. Not your amounts, not their total.</p>
               </div>
-              {wrongEmployer && <p className="error">Cette demande vise un autre employeur que le vôtre.</p>}
-              {salaries && !enough && !wrongEmployer && <p className="error">Vos 3 derniers salaires n'atteignent pas ce seuil : aucune preuve possible.</p>}
+              {wrongEmployer && <p className="error">This request names another employer than yours.</p>}
+              {salaries && !enough && !wrongEmployer && <p className="error">Your last 3 salaries do not reach this threshold: no proof is possible.</p>}
               {phase.kind === "idle" || phase.kind === "error" ? (
-                <button className="btn btn--primary" onClick={attest} disabled={!salaries || !enough || !!wrongEmployer}>Créer l'attestation</button>
+                <button className="btn btn--primary" onClick={attest} disabled={!salaries || !enough || !!wrongEmployer}>Create the attestation</button>
               ) : null}
               {phase.kind === "error" && <p className="error">{phase.message}</p>}
               {phase.kind === "proving" && <Stages current={phase.stage} />}
               {phase.kind === "done" && (
                 <div className="share">
                   <Stages current={null} />
-                  <p>Preuve générée dans votre navigateur en {(phase.ms / 1000).toFixed(1)} s. Envoyez ce lien à votre vérificateur, ou montrez-lui le QR code :</p>
+                  <p>Proof generated in your browser in {(phase.ms / 1000).toFixed(1)} s. Send this link to your verifier, or show them the QR code:</p>
                   <div className="share__qr">
-                    {phase.qr && <img src={phase.qr} alt="QR code de l'attestation" width={180} height={180} />}
+                    {phase.qr && <img src={phase.qr} alt="QR code of the attestation" width={180} height={180} />}
                     <div className="share">
                       <div className="share__row">
-                        <input readOnly value={phase.link} aria-label="Lien de l'attestation" onFocus={(e) => e.currentTarget.select()} />
-                        <button className="btn" onClick={() => navigator.clipboard?.writeText(phase.link).then(() => setCopied(true))}>{copied ? "Copié" : "Copier"}</button>
+                        <input readOnly value={phase.link} aria-label="Attestation link" onFocus={(e) => e.currentTarget.select()} />
+                        <button className="btn" onClick={() => navigator.clipboard?.writeText(phase.link).then(() => setCopied(true))}>{copied ? "Copied" : "Copy"}</button>
                       </div>
-                      <a className="muted small" href={phase.link} target="_blank" rel="noreferrer">Ouvrir l'attestation (vérifiable et imprimable) ↗</a>
+                      <a className="muted small" href={phase.link} target="_blank" rel="noreferrer">Open the attestation (verifiable and printable) ↗</a>
                     </div>
                   </div>
                 </div>

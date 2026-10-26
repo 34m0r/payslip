@@ -17,7 +17,7 @@ export class TestnetPayrollEngine implements PayrollEngine {
 
   async run(onUpdate: (t: Transfer) => void, signal: { cancelled: boolean }, onPhase?: (p: string) => void) {
     const res = await fetch("/api/payroll", { method: "POST" });
-    if (!res.ok || !res.body) throw new Error(`le serveur a refusé la paie (${res.status})`);
+    if (!res.ok || !res.body) throw new Error(`the server refused the payroll (${res.status})`);
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
     let buffer = "";
     for (;;) {

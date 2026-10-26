@@ -11,10 +11,10 @@ import { usdc } from "./data";
  */
 type Step = "auth" | "form" | "settle" | "payout";
 const STEPS: { id: Step; label: string }[] = [
-  { id: "auth", label: "Ouverture du retrait chez l'anchor (SEP-10, SEP-24)" },
-  { id: "form", label: "Confirmation du montant dans la fenêtre de l'anchor" },
-  { id: "settle", label: "Retrait confidentiel vers l'USDC public (preuve on-chain), puis paiement à l'anchor" },
-  { id: "payout", label: "Conversion et virement vers votre banque (simulés, testnet)" },
+  { id: "auth", label: "Opening the withdrawal at the anchor (SEP-10, SEP-24)" },
+  { id: "form", label: "Confirming the amount in the anchor's window" },
+  { id: "settle", label: "Confidential withdraw to public USDC (proof on-chain), then payment to the anchor" },
+  { id: "payout", label: "Conversion and transfer to your bank (simulated, testnet)" },
 ];
 
 /** What survives a reload, so a cash-out resumes where it stopped (the server never pays twice). */
@@ -41,7 +41,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 type AnchorTx = { status: string; amount_in?: string; amount_out?: string; amount_out_asset?: string; stellar_transaction_id?: string };
 const payoutOf = (t: AnchorTx) => {
   const ccy = t.amount_out_asset?.startsWith("iso4217:") ? t.amount_out_asset.slice(8) : null;
-  return ccy && t.amount_out ? Number(t.amount_out).toLocaleString("fr-FR", { style: "currency", currency: ccy }) : undefined;
+  return ccy && t.amount_out ? Number(t.amount_out).toLocaleString("en-US", { style: "currency", currency: ccy }) : undefined;
 };
 
 export function Cashout({ employeeId }: { employeeId: string }) {
@@ -118,7 +118,7 @@ export function Cashout({ employeeId }: { employeeId: string }) {
 
       setStep("payout");
       while (t.status !== "completed") {
-        if (["error", "expired", "refunded"].includes(t.status)) throw new Error(`l'anchor a répondu « ${t.status} »`);
+        if (["error", "expired", "refunded"].includes(t.status)) throw new Error(`the anchor answered "${t.status}"`);
         await sleep(2000);
         t = await api<AnchorTx>({ action: "status", employeeId, id: s.id });
       }
@@ -137,7 +137,7 @@ export function Cashout({ employeeId }: { employeeId: string }) {
   // The popup must open synchronously in the click handler, or Brave blocks it.
   const start = () => {
     const popup = window.open("", "payslip-anchor", "popup,width=480,height=640");
-    popup?.document.write(`<p style="font:16px system-ui;padding:24px">Ouverture du retrait…</p>`);
+    popup?.document.write(`<p style="font:16px system-ui;padding:24px">Opening the withdrawal…</p>`);
     run(popup);
   };
 
@@ -147,36 +147,36 @@ export function Cashout({ employeeId }: { employeeId: string }) {
 
   return (
     <section className="block" aria-labelledby="h-cashout">
-      <h2 id="h-cashout">Retirer vers ma banque</h2>
+      <h2 id="h-cashout">Cash out to my bank</h2>
       <p className="muted small">
-        Solde confidentiel : <strong>{balance === null ? "…" : usdc(usdcOf(balance))}</strong>. Retrait via l'anchor testnet de Payslip (SEP-24), versé dans votre monnaie au taux de démo, virement bancaire simulé, {max} USDC maximum sur la démo publique.
+        Confidential balance: <strong>{balance === null ? "…" : usdc(usdcOf(balance))}</strong>. Withdrawn through Payslip's testnet anchor (SEP-24), paid out in your currency at a demo rate, bank transfer simulated, up to {max} USDC on the public demo.
       </p>
-      <p className="request">Le montant retiré devient public sur la blockchain : votre salaire reste confidentiel tant qu'il reste dans Payslip.</p>
+      <p className="request">The amount you withdraw becomes public on the blockchain: your salary stays confidential while it stays in Payslip.</p>
 
       {saved?.completed && !running && (
         <p className="small">
-          Dernier retrait : <strong>{usdc(Number(saved.completed.amount))}</strong>{saved.completed.payout ? <> convertis en <strong>{saved.completed.payout}</strong></> : null} et versés sur votre banque (simulé, taux de démo).{" "}
-          {saved.paymentTx && <a className="hash" href={txLink(saved.paymentTx)} target="_blank" rel="noreferrer">paiement ↗</a>}
+          Last cash-out: <strong>{usdc(Number(saved.completed.amount))}</strong>{saved.completed.payout ? <> converted to <strong>{saved.completed.payout}</strong></> : null} and paid to your bank (simulated, demo rate).{" "}
+          {saved.paymentTx && <a className="hash" href={txLink(saved.paymentTx)} target="_blank" rel="noreferrer">payment ↗</a>}
         </p>
       )}
 
       {!running && !unfinished && (
         <>
           <label className="field">
-            <span>Montant à retirer (USDC)</span>
-            <input type="number" min={0} max={cap} step="any" placeholder={`jusqu'à ${max}`} value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <span>Amount to withdraw (USDC)</span>
+            <input type="number" min={0} max={cap} step="any" placeholder={`up to ${max}`} value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           <label className="check">
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
-            <span>J'ai compris que ce montant sera visible publiquement.</span>
+            <span>I understand this amount will be publicly visible.</span>
           </label>
-          <button className="btn btn--primary" onClick={start} disabled={!valid || !ack}>Retirer vers ma banque</button>
+          <button className="btn btn--primary" onClick={start} disabled={!valid || !ack}>Cash out to my bank</button>
         </>
       )}
       {!running && unfinished && (
         <>
-          <p className="small">Un retrait est en cours{saved?.withdrawTx ? " (retrait confidentiel déjà effectué)" : ""}.</p>
-          <button className="btn btn--primary" onClick={start}>Reprendre le retrait</button>
+          <p className="small">A cash-out is in progress{saved?.withdrawTx ? " (confidential withdraw already done)" : ""}.</p>
+          <button className="btn btn--primary" onClick={start}>Resume the cash-out</button>
         </>
       )}
 
@@ -188,7 +188,7 @@ export function Cashout({ employeeId }: { employeeId: string }) {
         </ol>
       )}
       {saved?.withdrawTx && (running || unfinished) && (
-        <p className="muted small">Retrait confidentiel : <a className="hash" href={txLink(saved.withdrawTx)} target="_blank" rel="noreferrer">{saved.withdrawTx.slice(0, 10)}… ↗</a></p>
+        <p className="muted small">Confidential withdraw: <a className="hash" href={txLink(saved.withdrawTx)} target="_blank" rel="noreferrer">{saved.withdrawTx.slice(0, 10)}… ↗</a></p>
       )}
       {error && <p className="error">{error}</p>}
     </section>

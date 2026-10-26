@@ -46,46 +46,46 @@ function Fetch({ id }: { id: string }) {
   const [bundle, setBundle] = useState<IncomeBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { fetchAttestation(id).then(setBundle).catch((e) => setError(e.message)); }, [id]);
-  if (error) return <section className="verdict verdict--bad"><p className="verdict__title">✕ Attestation refusée</p><p>{error}</p></section>;
-  return bundle ? <Check bundle={bundle} shortLink={location.href} /> : <p className="muted">Chargement de l'attestation…</p>;
+  if (error) return <section className="verdict verdict--bad"><p className="verdict__title">✕ Attestation rejected</p><p>{error}</p></section>;
+  return bundle ? <Check bundle={bundle} shortLink={location.href} /> : <p className="muted">Loading the attestation…</p>;
 }
 
 function NewRequest() {
   const [monthly, setMonthly] = useState(3000);
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  if (!deployment) return <p className="error">Pas de déploiement testnet dans ce build.</p>;
+  if (!deployment) return <p className="error">No testnet deployment in this build.</p>;
 
   function create() {
     if (!deployment) return;
     const { request } = newIncomeRequest({ threshold: unitsOf(monthly * N), employer: deployment.employer.address, token: deployment.contracts.token });
     saveRequest(request);
-    setLink(`${location.origin}/salarie#req=${encodeLink(request)}`);
+    setLink(`${location.origin}/employee#req=${encodeLink(request)}`);
     setCopied(false);
   }
 
   return (
     <>
       <header className="sheet__head">
-        <p className="eyebrow">Vérification de revenus · testnet</p>
-        <h1>Demander une attestation</h1>
-        <p className="muted">Vous louez un logement ou accordez un prêt ? Demandez une preuve de revenus. Vous saurez si le seuil est atteint, rien de plus.</p>
+        <p className="eyebrow">Income verification · testnet</p>
+        <h1>Request an attestation</h1>
+        <p className="muted">Renting out a flat or granting a loan? Ask for proof of income. You will learn whether the threshold is met, nothing more.</p>
       </header>
       <section className="block">
         <label className="field">
-          <span>Revenu mensuel minimum (USDC)</span>
+          <span>Minimum monthly income (USDC)</span>
           <input type="number" min={1} step={100} value={monthly} onChange={(e) => setMonthly(Math.max(1, Number(e.target.value) || 0))} />
         </label>
-        <p className="muted small">Sur les {N} derniers salaires, versés par {deployment.employer.name}. Soit au moins {usdc(monthly * N)} au total.</p>
-        <button className="btn btn--primary" onClick={create}>Créer la demande</button>
+        <p className="muted small">Over the last {N} salaries, paid by {deployment.employer.name}: at least {usdc(monthly * N)} in total.</p>
+        <button className="btn btn--primary" onClick={create}>Create the request</button>
         {link && (
           <div className="share">
-            <p>Envoyez ce lien au salarié. Son attestation ne sera valable que pour vous et pour cette demande.</p>
+            <p>Send this link to the employee. Their attestation will be valid only for you and this request.</p>
             <div className="share__row">
-              <input readOnly value={link} aria-label="Lien de la demande" onFocus={(e) => e.currentTarget.select()} />
-              <button className="btn" onClick={() => navigator.clipboard?.writeText(link).then(() => setCopied(true))}>{copied ? "Copié" : "Copier"}</button>
+              <input readOnly value={link} aria-label="Request link" onFocus={(e) => e.currentTarget.select()} />
+              <button className="btn" onClick={() => navigator.clipboard?.writeText(link).then(() => setCopied(true))}>{copied ? "Copied" : "Copy"}</button>
             </div>
-            <a className="muted small" href={link} target="_blank" rel="noreferrer">Ouvrir comme le salarié ↗</a>
+            <a className="muted small" href={link} target="_blank" rel="noreferrer">Open as the employee ↗</a>
           </div>
         )}
       </section>
@@ -103,7 +103,7 @@ function Check({ bundle, shortLink }: { bundle: IncomeBundle; shortLink?: string
     if (result.kind !== "ok") return;
     const evs = result.verified.events;
     Promise.all([ledgerTime(evs[0].ledger), ledgerTime(evs[evs.length - 1].ledger)])
-      .then(([a, b]) => a && b && setPeriod(`du ${formatDate(a)} au ${formatDate(b)}`));
+      .then(([a, b]) => a && b && setPeriod(`${formatDate(a)} to ${formatDate(b)}`));
   }, [result]);
 
   useEffect(() => {
@@ -126,41 +126,41 @@ function Check({ bundle, shortLink }: { bundle: IncomeBundle; shortLink?: string
   return (
     <>
       <header className="sheet__head">
-        <p className="eyebrow">Attestation de revenus · testnet</p>
-        <h1>Vérification</h1>
+        <p className="eyebrow">Income attestation · testnet</p>
+        <h1>Verification</h1>
       </header>
       {result.kind === "checking" && (
         <section className="verdict verdict--pending" aria-live="polite">
-          <p className="verdict__title">Vérification en cours…</p>
-          <p className="muted">Lecture des virements sur Stellar, reconstruction des entrées publiques, vérification de la preuve.</p>
+          <p className="verdict__title">Verifying…</p>
+          <p className="muted">Reading the transfers on Stellar, rebuilding the public inputs, verifying the proof.</p>
         </section>
       )}
       {result.kind === "error" && (
         <section className="verdict verdict--bad" aria-live="polite">
-          <p className="verdict__title">✕ Attestation refusée</p>
+          <p className="verdict__title">✕ Attestation rejected</p>
           <p>{result.message}</p>
         </section>
       )}
       {result.kind === "ok" && (
         <>
           <section className={`verdict ${result.bound ? "verdict--ok" : "verdict--warn"}`} aria-live="polite">
-            <p className="verdict__title">✓ Revenus d'au moins {monthly}/mois sur {N} mois</p>
-            <p>versés par <strong>{deployment?.employer.name ?? "l'employeur"}</strong>, prouvés sans révéler aucun montant.</p>
+            <p className="verdict__title">✓ Income of at least {monthly}/month over {N} months</p>
+            <p>paid by <strong>{deployment?.employer.name ?? "the employer"}</strong>, proven without revealing any amount.</p>
             {!result.bound && (
-              <p className="small">Attention : cette attestation répond à une demande créée depuis un autre navigateur. La preuve est valide, mais elle n'a pas été faite pour vous.</p>
+              <p className="small">Note: this attestation answers a request created in another browser. The proof is valid, but it was not made for you.</p>
             )}
           </section>
           <section className="block">
-            <h2>Ce qui a été vérifié</h2>
+            <h2>What was verified</h2>
             <ol className="stages">
               {result.verified.steps.map((s) => <li key={s} className="is-done"><span className="dot" aria-hidden="true" />{s}</li>)}
             </ol>
-            <h2>Les {N} virements, sur la blockchain</h2>
+            <h2>The {N} transfers, on the blockchain</h2>
             <ul className="ledger">
               {result.verified.events.map((ev) => (
                 <li key={ev.cursor}>
                   <LedgerDate ledger={ev.ledger} />
-                  <span className="amount amount--cipher">montant chiffré</span>
+                  <span className="amount amount--cipher">encrypted amount</span>
                   <a className="hash" href={txLink(ev.txHash)} target="_blank" rel="noreferrer">{ev.txHash.slice(0, 8)}…</a>
                 </li>
               ))}
@@ -168,19 +168,19 @@ function Check({ bundle, shortLink }: { bundle: IncomeBundle; shortLink?: string
           </section>
           <section className="certificate" aria-labelledby="h-cert">
             <div className="certificate__body">
-              <p className="eyebrow">Payslip · attestation vérifiable</p>
-              <h2 id="h-cert">Attestation de revenus</h2>
+              <p className="eyebrow">Payslip · verifiable attestation</p>
+              <h2 id="h-cert">Income attestation</h2>
               <dl>
-                <div><dt>Revenus prouvés</dt><dd>au moins {monthly}/mois sur {N} mois</dd></div>
+                <div><dt>Proven income</dt><dd>at least {monthly}/month over {N} months</dd></div>
                 <div><dt>Employeur</dt><dd>{deployment?.employer.name ?? "—"}</dd></div>
-                {period && <div><dt>Période</dt><dd>{period}</dd></div>}
-                <div><dt>Vérifiée le</dt><dd>{formatDate(checkedAt)}, contre Stellar testnet</dd></div>
+                {period && <div><dt>Period</dt><dd>{period}</dd></div>}
+                <div><dt>Verified on</dt><dd>{formatDate(checkedAt)}, against Stellar testnet</dd></div>
               </dl>
-              <p className="muted small">Aucun montant n'est révélé. {qr ? "Scannez le QR code pour revérifier la preuve sur la blockchain." : ""}</p>
+              <p className="muted small">No amount is revealed. {qr ? "Scan the QR code to re-verify the proof against the blockchain." : ""}</p>
             </div>
-            {qr && <img className="certificate__qr" src={qr} alt="QR code pour revérifier l'attestation" width={160} height={160} />}
+            {qr && <img className="certificate__qr" src={qr} alt="QR code to re-verify the attestation" width={160} height={160} />}
           </section>
-          <button className="btn no-print" onClick={() => window.print()}>Imprimer l'attestation</button>
+          <button className="btn no-print" onClick={() => window.print()}>Print the attestation</button>
         </>
       )}
     </>

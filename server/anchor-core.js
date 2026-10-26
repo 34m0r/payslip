@@ -20,7 +20,7 @@ const PAYOUT_DELAY_MS = 4000; // the simulated bank transfer, after the USDC lan
 // Payout currencies, at FIXED DEMO RATES (USDC → local currency). A real deployment would quote
 // live rates (SEP-38) through an anchor in the employee's country; ours only simulates the payout.
 export const PAYOUT_RATES = { EUR: 0.92, BRL: 5.4, NGN: 1550, MXN: 18.5, INR: 84, USD: 1 };
-const LOCALE = { EUR: "fr-FR", BRL: "pt-BR", NGN: "en-NG", MXN: "es-MX", INR: "en-IN", USD: "en-US" };
+const LOCALE = { EUR: "en-IE", BRL: "en-US", NGN: "en-US", MXN: "en-US", INR: "en-IN", USD: "en-US" };
 const currencyOf = (c) => (Object.hasOwn(PAYOUT_RATES, c) ? c : "USD");
 const convert = (usdc, ccy) => (Number(usdc) * PAYOUT_RATES[ccy]).toFixed(2);
 const money = (amount, ccy) => Number(amount).toLocaleString(LOCALE[ccy], { style: "currency", currency: ccy });
@@ -116,7 +116,7 @@ async function status(cfg, id, account) {
   const landed = Date.parse(p.created_at);
   return Date.now() - landed < PAYOUT_DELAY_MS
     ? { ...base, status: "pending_anchor", stellar_transaction_id: p.transaction_hash }
-    : { ...base, status: "completed", stellar_transaction_id: p.transaction_hash, completed_at: new Date(landed + PAYOUT_DELAY_MS).toISOString(), message: `Virement bancaire simulé de ${money(convert(entry.amount, entry.ccy), entry.ccy)} (taux de démo, testnet)` };
+    : { ...base, status: "completed", stellar_transaction_id: p.transaction_hash, completed_at: new Date(landed + PAYOUT_DELAY_MS).toISOString(), message: `Simulated bank transfer of ${money(convert(entry.amount, entry.ccy), entry.ccy)} (demo rate, testnet)` };
 }
 
 // ---------------------------------------------------------------------------
@@ -192,24 +192,24 @@ export async function handle({ method, path, query, headers, body, origin }) {
   if (path === "/sep24/interactive") {
     const p = method === "POST" ? body : query;
     const claims = jwtVerify(cfg.jwtSecret, p.token);
-    if (!claims || claims.tx !== p.id) return html(403, "Lien expiré", "<p>Relancez le retrait depuis Payslip.</p>");
+    if (!claims || claims.tx !== p.id) return html(403, "Link expired", "<p>Start the withdrawal again from Payslip.</p>");
     if (method === "POST") {
       const amount = Number(p.amount);
-      if (!(amount > 0)) return html(400, "Montant invalide", "<p>Saisissez un montant positif.</p>");
+      if (!(amount > 0)) return html(400, "Invalid amount", "<p>Enter a positive amount.</p>");
       if (!(await readEntry(cfg.dist, p.id))) await writeEntry(cfg.dist, p.id, amount.toFixed(7).replace(/\.?0+$/, ""), claims.sub, currencyOf(p.ccy));
     }
     const entry = await readEntry(cfg.dist, p.id);
     if (entry) {
-      return html(200, "Retrait confirmé", `<p>${esc(entry.amount)} USDC seront convertis en <b>${esc(money(convert(entry.amount, entry.ccy), entry.ccy))}</b> et virés sur votre compte (simulé). Payslip envoie les USDC. Vous pouvez fermer cette fenêtre.</p><script>setTimeout(() => window.close(), 2500)</script>`);
+      return html(200, "Withdrawal confirmed", `<p>${esc(entry.amount)} USDC will be converted to <b>${esc(money(convert(entry.amount, entry.ccy), entry.ccy))}</b> and sent to your bank account (simulated). Payslip sends the USDC. You can close this window.</p><script>setTimeout(() => window.close(), 2500)</script>`);
     }
-    return html(200, "Retirer vers votre banque", `
+    return html(200, "Withdraw to your bank", `
       <form method="post">
         <input type="hidden" name="id" value="${esc(p.id)}"><input type="hidden" name="token" value="${esc(p.token)}">
-        <label>Montant (USDC)<input id="amount" name="amount" type="number" min="0.0000001" step="any" required value="${esc(claims.amount ?? "")}"></label>
-        <label>Recevoir en<select id="ccy" name="ccy">${Object.keys(PAYOUT_RATES).map((c) => `<option value="${c}"${c === currencyOf(claims.ccy) ? " selected" : ""}>${c}</option>`).join("")}</select></label>
-        <p class="quote">Vous recevrez <b id="out">…</b></p>
-        <p class="muted">Taux de démonstration fixe (1 USDC = <span id="rate"></span>), pas un taux de marché. Compte bancaire : <b>compte de démonstration (testnet)</b>, virement simulé.</p>
-        <button>Confirmer le retrait</button>
+        <label>Amount (USDC)<input id="amount" name="amount" type="number" min="0.0000001" step="any" required value="${esc(claims.amount ?? "")}"></label>
+        <label>Receive in<select id="ccy" name="ccy">${Object.keys(PAYOUT_RATES).map((c) => `<option value="${c}"${c === currencyOf(claims.ccy) ? " selected" : ""}>${c}</option>`).join("")}</select></label>
+        <p class="quote">You will receive <b id="out">…</b></p>
+        <p class="muted">Fixed demo rate (1 USDC = <span id="rate"></span>), not a market rate. Bank account: <b>demo account (testnet)</b>, simulated transfer.</p>
+        <button>Confirm the withdrawal</button>
       </form>
       <script>
         const RATES = ${JSON.stringify(PAYOUT_RATES)}, LOCALE = ${JSON.stringify(LOCALE)};
@@ -248,9 +248,9 @@ desc="Circle testnet USDC, withdrawn to a simulated bank account."
 }
 
 function page(title, body) {
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title>
 <style>body{font:16px/1.5 system-ui,sans-serif;background:#EEF4F1;color:#18233F;margin:0;display:grid;place-items:center;min-height:100vh}
 main{background:#F7FAF8;border:1px solid #CBD8D6;border-radius:14px;padding:28px;width:min(92vw,420px)}h1{font-size:22px;margin:0 0 4px}.eyebrow{color:#1F6F5C;font-size:13px;font-weight:600;margin:0 0 12px}
 label{display:grid;gap:6px;margin:16px 0}input,select{font:inherit;padding:10px;border:1px solid #CBD8D6;border-radius:10px;background:#fff}.quote{font-size:18px;margin:4px 0 8px}button{font:600 16px system-ui;background:#18233F;color:#EEF4F1;border:0;border-radius:10px;padding:12px 18px;cursor:pointer}.muted{color:#4F5D75;font-size:14px}</style></head>
-<body><main><p class="eyebrow">Anchor testnet Payslip</p><h1>${esc(title)}</h1>${body}</main></body></html>`;
+<body><main><p class="eyebrow">Payslip testnet anchor</p><h1>${esc(title)}</h1>${body}</main></body></html>`;
 }

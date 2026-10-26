@@ -17,7 +17,7 @@ export async function shareAttestation(bundle: IncomeBundle): Promise<string | n
 export async function fetchAttestation(id: string): Promise<IncomeBundle> {
   const res = await fetch(`/api/attestation?id=${encodeURIComponent(id)}`);
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error === "attestation not found" ? "attestation introuvable" : (json.error ?? `erreur ${res.status}`));
+  if (!res.ok) throw new Error(json.error ?? `error ${res.status}`);
   return json as IncomeBundle;
 }
 
@@ -35,4 +35,4 @@ export function ledgerTime(seq: number): Promise<Date | null> {
   }
   return times.get(seq)!;
 }
-export const formatDate = (d: Date) => d.toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+export const formatDate = (d: Date) => d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
